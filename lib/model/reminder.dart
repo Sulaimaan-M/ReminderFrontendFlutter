@@ -1,6 +1,6 @@
 // lib/model/reminder.dart
 
-import '../util/timezone_helper.dart'; // 👈 NEW IMPORT
+import '../util/timezone_helper.dart';
 
 enum IntervalType {
   simple,
@@ -21,9 +21,9 @@ enum IntervalType {
 
   static IntervalType fromString(String? value) {
     if (value == null) return IntervalType.simple;
-    final lower = value.toLowerCase();
+    final upper = value.toUpperCase();
     for (var type in IntervalType.values) {
-      if (type.name == lower) return type;
+      if (type.toApiValue() == upper) return type;
     }
     return IntervalType.simple;
   }
@@ -46,12 +46,19 @@ class Reminder {
     required this.deviceId,
   });
 
-  factory Reminder.fromJson(Map<String, dynamic> json) {
+  /// Creates a Reminder from backend JSON (UTC time) and converts to local time
+  factory Reminder.fromBackendJson(Map<String, dynamic> json) {
+    // 🔑 FIX: Use correct field names from backend
+    final text = json['text'] as String?; // 👈 'text' not 'reminderTxt'
+    final intervalTypeStr = json['intervalType'] as String?; // 👈 'intervalType' not 'interval'
     final remindAtStr = json['remindAt'] as String?;
+    final deviceToken = json['deviceToken'] as Map<String, dynamic>?;
+    final deviceId = deviceToken?['id'] as int?;
+
     DateTime parsedDateTime;
     if (remindAtStr != null) {
       try {
-        parsedDateTime = DateTime.parse(remindAtStr);
+        parsedDateTime = DateTime.parse(remindAtStr).toLocal();
       } catch (e) {
         parsedDateTime = DateTime.now();
       }
@@ -59,19 +66,21 @@ class Reminder {
       parsedDateTime = DateTime.now();
     }
 
+    final interval = IntervalType.fromString(intervalTypeStr);
+
     return Reminder(
       id: json['id'] as int?,
-      reminderTxt: json['reminderTxt'] ?? 'Untitled',
+      reminderTxt: text ?? 'Untitled',
       remindAt: parsedDateTime,
-      interval: IntervalType.fromString(json['interval'] as String?),
-      deviceId: json['deviceTokenId'] as int? ?? 0,
+      interval: interval,
+      deviceId: deviceId ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'reminderTxt': reminderTxt,
-      'remindAt': toZonedDateTimeString(remindAt), // 👈 FIXED
+      'remindAt': toZonedDateTimeString(remindAt),
       'interval': interval.toApiValue(),
       'deviceTokenId': deviceId,
     };

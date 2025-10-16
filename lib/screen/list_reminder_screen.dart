@@ -1,3 +1,5 @@
+// lib/screen/list_reminder_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:reminder_app/screen/view_reminder_screen.dart';
 import '../model/reminder.dart';
@@ -12,17 +14,22 @@ class ReminderListScreen extends StatefulWidget {
 }
 
 class _ReminderListScreenState extends State<ReminderListScreen> {
-  late Future<List<Reminder>> _futureReminders;
+  List<Reminder> _reminders = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _refreshReminders();
+    _loadReminders();
   }
 
-  void _refreshReminders() {
+  Future<void> _loadReminders() async {
+    setState(() => _isLoading = true);
+    final service = ReminderService();
+    final reminders = await service.getReminders();
     setState(() {
-      _futureReminders = ReminderService().getReminders();
+      _reminders = reminders;
+      _isLoading = false;
     });
   }
 
@@ -36,41 +43,44 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         title: Text(formattedDate),
         centerTitle: true,
       ),
-      body: FutureBuilder<List<Reminder>>(
-        future: _futureReminders,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          final reminders = snapshot.data ?? [];
-          if (reminders.isEmpty) {
-            return const Center(child: Text('No reminders yet.'));
-          }
-          return ListView.builder(
-            itemCount: reminders.length,
-            itemBuilder: (context, index) {
-              final r = reminders[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  title: Text(r.reminderTxt),
-                  subtitle: Text(
-                    '${_formatDateTime(r.remindAt)} • ${r.interval.label}',
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _reminders.isEmpty
+          ? const Center(child: Text('No reminders yet.'))
+          : ListView.builder(
+        itemCount: _reminders.length,
+        itemBuilder: (context, index) {
+          final r = _reminders[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              title: Text(r.reminderTxt.isNotEmpty ? r.reminderTxt : 'Untitled'),
+              subtitle: Text(
+                '${_formatDateTime(r.remindAt)} • ${r.interval.label}',
+              ),
+              onTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ViewReminderScreen(reminder: r),
                   ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ViewReminderScreen(reminder: r),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
+                );
+                if (result is int) {
+                  // Deleted: remove by ID
+                  setState(() {
+                    _reminders.removeWhere((rem) => rem.id == result);
+                  });
+                } else if (result is Reminder) {
+                  // Edited: replace
+                  final index = _reminders.indexWhere((rem) => rem.id == result.id);
+                  if (index != -1) {
+                    setState(() {
+                      _reminders[index] = result;
+                    });
+                  }
+                }
+              },
+            ),
           );
         },
       ),
@@ -82,8 +92,10 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               builder: (context) => const CreateReminderScreen(),
             ),
           );
-          if (result == true) {
-            _refreshReminders(); // Refresh list after adding
+          if (result is Reminder) {
+            setState(() {
+              _reminders.insert(0, result);
+            });
           }
         },
         child: const Icon(Icons.add),

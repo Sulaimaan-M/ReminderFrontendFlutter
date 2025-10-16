@@ -1,4 +1,4 @@
-// screen/view_reminder_screen.dart
+// lib/screen/view_reminder_screen.dart
 
 import 'package:flutter/material.dart';
 import '../model/reminder.dart';
@@ -100,13 +100,11 @@ class ViewReminderScreen extends StatelessWidget {
         builder: (context) => CreateReminderScreen(reminder: reminder),
       ),
     ).then((result) {
-      if (result == true && context.mounted) {
-        Navigator.pop(context);
+      if (result is Reminder && context.mounted) {
+        Navigator.pop(context, result);
       }
     });
   }
-
-  // Inside view_reminder_screen.dart
 
   Future<void> _deleteReminder(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -128,14 +126,13 @@ class ViewReminderScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      // ✅ REAL DELETE CALL
       final success = await ReminderService().deleteReminder(reminder.id!);
       if (context.mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Reminder deleted')),
           );
-          Navigator.pop(context);
+          Navigator.pop(context, reminder.id);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to delete')),

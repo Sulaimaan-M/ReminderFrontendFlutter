@@ -8,6 +8,7 @@ import '../widget/create_reminder/time_picker_section.dart';
 import '../widget/create_reminder/repetition_selector.dart';
 import '../widget/create_reminder/dynamic_section.dart';
 import '../model/yearly_selection.dart';
+import '../util/reminder_time_adjuster.dart'; // 👈 NEW IMPORT
 
 class CreateReminderScreen extends StatefulWidget {
   final Reminder? reminder;
@@ -43,8 +44,6 @@ class _CreateReminderScreenState extends State<CreateReminderScreen> {
     if (_repetition == IntervalType.simple) {
       _simpleDate = r.remindAt;
     }
-    // Note: Weekly/Monthly/Yearly extra data not stored in Reminder model yet
-    // So we use current defaults for _selectedWeekday, _monthlyDay, _yearlySelection
   }
 
   @override
@@ -75,7 +74,7 @@ class _CreateReminderScreenState extends State<CreateReminderScreen> {
               const SizedBox(height: 16),
               RepetitionSelector(
                 value: _repetition,
-                onChanged: (v) => setState(() => _repetition = v!),
+                onChanged: (v) => setState(() => _repetition = v),
               ),
               const SizedBox(height: 16),
               DynamicSection(
@@ -112,24 +111,31 @@ class _CreateReminderScreenState extends State<CreateReminderScreen> {
       remindAt = DateTime(now.year, now.month, now.day, _hour, _minute);
     }
 
-    // ✅ FIX: Pass a placeholder deviceId (0). ReminderService will replace it.
+    // ✅ ADJUST TIME TO FUTURE BASED ON INTERVAL
+    remindAt = ReminderTimeAdjuster.adjustToFuture(remindAt, _repetition);
+
+    final deviceId = await ReminderService().getDeviceId() ?? 0;
+
     final reminder = Reminder(
-      id: widget.reminder?.id, // preserve ID if editing
+      id: widget.reminder?.id,
       reminderTxt: _textController.text.trim(),
       remindAt: remindAt,
       interval: _repetition,
-      deviceId: 0, // 👈 Placeholder — will be replaced by ReminderService
+      deviceId: deviceId,
     );
 
     final service = ReminderService();
+    Reminder? result;
 
-    final success = widget.reminder != null
-        ? await service.editReminder(reminder)
-        : await service.createReminder(reminder);
+    if (widget.reminder != null) {
+      result = await service.editReminder(reminder);
+    } else {
+      result = await service.createReminder(reminder);
+    }
 
     if (!mounted) return;
-    if (success) {
-      Navigator.pop(context, true);
+    if (result != null) {
+      Navigator.pop(context, result);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save')));
     }

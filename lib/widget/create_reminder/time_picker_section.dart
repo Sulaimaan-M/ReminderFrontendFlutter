@@ -2,7 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../model/reminder.dart'; // for TimeSelection
+// for TimeSelection
 
 class TimeSelection {
   final int hour;
