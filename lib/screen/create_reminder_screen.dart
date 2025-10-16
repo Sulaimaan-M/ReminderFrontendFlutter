@@ -1,4 +1,4 @@
-// screen/create_reminder_screen.dart
+// lib/screen/create_reminder_screen.dart
 
 import 'package:flutter/material.dart';
 import '../model/reminder.dart';
@@ -7,7 +7,7 @@ import '../widget/create_reminder/reminder_text_field.dart';
 import '../widget/create_reminder/time_picker_section.dart';
 import '../widget/create_reminder/repetition_selector.dart';
 import '../widget/create_reminder/dynamic_section.dart';
-import '../widget/create_reminder/yearly_section.dart';
+import '../model/yearly_selection.dart';
 
 class CreateReminderScreen extends StatefulWidget {
   final Reminder? reminder;
@@ -112,15 +112,17 @@ class _CreateReminderScreenState extends State<CreateReminderScreen> {
       remindAt = DateTime(now.year, now.month, now.day, _hour, _minute);
     }
 
+    // ✅ FIX: Pass a placeholder deviceId (0). ReminderService will replace it.
     final reminder = Reminder(
+      id: widget.reminder?.id, // preserve ID if editing
       reminderTxt: _textController.text.trim(),
       remindAt: remindAt,
       interval: _repetition,
+      deviceId: 0, // 👈 Placeholder — will be replaced by ReminderService
     );
 
     final service = ReminderService();
 
-    // ✅ Use editReminder if editing, createReminder if new
     final success = widget.reminder != null
         ? await service.editReminder(reminder)
         : await service.createReminder(reminder);

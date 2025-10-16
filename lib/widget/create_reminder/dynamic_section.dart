@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../model/reminder.dart';
+import '../../model/yearly_selection.dart';
 import 'simple_date_section.dart';
 import 'weekly_section.dart';
 import 'monthly_section.dart';

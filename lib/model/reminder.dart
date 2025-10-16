@@ -1,4 +1,6 @@
-// model/reminder.dart
+// lib/model/reminder.dart
+
+import '../util/timezone_helper.dart'; // 👈 NEW IMPORT
 
 enum IntervalType {
   simple,
@@ -7,7 +9,6 @@ enum IntervalType {
   monthly,
   yearly;
 
-  // Human-readable label for UI
   String get label {
     switch (this) {
       case simple: return 'Simple';
@@ -18,7 +19,6 @@ enum IntervalType {
     }
   }
 
-  // Convert from String (e.g., from API)
   static IntervalType fromString(String? value) {
     if (value == null) return IntervalType.simple;
     final lower = value.toLowerCase();
@@ -28,19 +28,22 @@ enum IntervalType {
     return IntervalType.simple;
   }
 
-  // For API (e.g., "SIMPLE", "DAILY")
   String toApiValue() => name.toUpperCase();
 }
 
 class Reminder {
+  final int? id;
   final String reminderTxt;
   final DateTime remindAt;
   final IntervalType interval;
+  final int deviceId;
 
   Reminder({
+    this.id,
     required this.reminderTxt,
     required this.remindAt,
     required this.interval,
+    required this.deviceId,
   });
 
   factory Reminder.fromJson(Map<String, dynamic> json) {
@@ -57,17 +60,20 @@ class Reminder {
     }
 
     return Reminder(
+      id: json['id'] as int?,
       reminderTxt: json['reminderTxt'] ?? 'Untitled',
       remindAt: parsedDateTime,
       interval: IntervalType.fromString(json['interval'] as String?),
+      deviceId: json['deviceTokenId'] as int? ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'reminderTxt': reminderTxt,
-      'remindAt': remindAt.toIso8601String(),
+      'remindAt': toZonedDateTimeString(remindAt), // 👈 FIXED
       'interval': interval.toApiValue(),
+      'deviceTokenId': deviceId,
     };
   }
 }

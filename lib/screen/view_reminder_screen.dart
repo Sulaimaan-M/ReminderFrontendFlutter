@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../model/reminder.dart';
+import '../service/reminder_service.dart';
 import 'create_reminder_screen.dart';
 
 class ViewReminderScreen extends StatelessWidget {
@@ -105,6 +106,8 @@ class ViewReminderScreen extends StatelessWidget {
     });
   }
 
+  // Inside view_reminder_screen.dart
+
   Future<void> _deleteReminder(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -125,13 +128,19 @@ class ViewReminderScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
-      // TODO: Replace with real delete API call
-      await Future.delayed(const Duration(milliseconds: 200));
+      // ✅ REAL DELETE CALL
+      final success = await ReminderService().deleteReminder(reminder.id!);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reminder deleted')),
-        );
-        Navigator.pop(context);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reminder deleted')),
+          );
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to delete')),
+          );
+        }
       }
     }
   }

@@ -1,3 +1,19 @@
+// android/build.gradle.kts
+
+buildscript {
+    val kotlin_version = "1.9.0"
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:7.3.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+        classpath("com.google.gms:google-services:4.4.4")
+        classpath("com.android.tools:desugar_jdk_libs:2.0.4")
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -21,8 +37,4 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
-}
-plugins{
-
-    id("com.google.gms.google-services") version "4.4.4" apply false
 }
