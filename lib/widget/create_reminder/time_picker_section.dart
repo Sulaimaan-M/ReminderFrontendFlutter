@@ -1,8 +1,5 @@
-// widget/create_reminder/time_picker_section.dart
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-// for TimeSelection
 
 class TimeSelection {
   final int hour;

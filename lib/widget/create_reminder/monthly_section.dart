@@ -1,5 +1,3 @@
-// widget/create_reminder/monthly_section.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 

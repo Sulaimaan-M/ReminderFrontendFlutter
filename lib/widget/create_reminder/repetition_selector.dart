@@ -1,7 +1,5 @@
-// widget/create_reminder/repetition_selector.dart
-
 import 'package:flutter/material.dart';
-import '../../model/reminder.dart'; // for IntervalType
+import '../../model/reminder.dart';
 
 class RepetitionSelector extends StatelessWidget {
   final IntervalType value;

@@ -1,4 +1,3 @@
-// service/device_token_service.dart
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,7 +50,6 @@ class DeviceTokenService {
       final response = await _apiClient.registerToken(token);
 
       if (response.success && response.deviceId != null) {
-        // ✅ Save BOTH token and deviceId
         await prefs.setString(_PREF_FCM_TOKEN, token);
         await prefs.setInt(_PREF_DEVICE_ID, response.deviceId!);
         debugPrint('✅ Registered device. ID: ${response.deviceId}');

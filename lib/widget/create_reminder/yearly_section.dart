@@ -1,8 +1,6 @@
-// lib/widget/create_reminder/yearly_section.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../../model/yearly_selection.dart'; // 👈 UPDATED IMPORT
+import '../../model/yearly_selection.dart';
 
 class YearlySection extends StatefulWidget {
   final YearlySelection selection;

@@ -1,5 +1,3 @@
-// lib/service/reminder_service.dart
-
 import 'package:flutter/foundation.dart';
 import '../model/reminder.dart';
 import '../api/reminder_api_client.dart';
@@ -11,7 +9,6 @@ class ReminderService {
   ReminderService({ReminderApiClient? apiClient})
       : _apiClient = apiClient ?? HttpReminderApiClient();
 
-  // 👇 PUBLIC METHOD TO GET DEVICE ID
   Future<int?> getDeviceId() async {
     return await DeviceTokenService().getDeviceId();
   }

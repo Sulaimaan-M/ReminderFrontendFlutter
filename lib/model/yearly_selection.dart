@@ -1,5 +1,3 @@
-// lib/model/yearly_selection.dart
-
 class YearlySelection {
   final int month;
   final int day;

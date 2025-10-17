@@ -1,5 +1,3 @@
-// widget/create_reminder/weekly_section.dart
-
 import 'package:flutter/material.dart';
 
 class WeeklySection extends StatelessWidget {

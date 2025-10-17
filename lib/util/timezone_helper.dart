@@ -1,5 +1,3 @@
-// lib/util/timezone_helper.dart
-
 String toZonedDateTimeString(DateTime localDateTime) {
   final local = localDateTime.isUtc ? localDateTime.toLocal() : localDateTime;
   final offset = local.timeZoneOffset;

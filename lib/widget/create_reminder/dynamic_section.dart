@@ -1,5 +1,3 @@
-// widget/create_reminder/dynamic_section.dart
-
 import 'package:flutter/material.dart';
 import '../../model/reminder.dart';
 import '../../model/yearly_selection.dart';

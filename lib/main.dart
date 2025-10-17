@@ -1,10 +1,8 @@
-// lib/main.dart
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:reminder_app/screen/list_reminder_screen.dart';
 import 'package:reminder_app/service/device_token_service.dart';
-import 'package:reminder_app/service/fcm_notification_service.dart'; // 👈 NEW
+import 'package:reminder_app/service/fcm_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

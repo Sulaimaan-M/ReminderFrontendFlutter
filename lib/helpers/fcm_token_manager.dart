@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class FCMTokenManager {
   static const String _tokenKey = 'fcm_token';
-  static const String _deviceIdKey = 'device_id'; // Optional: your backend's ID
+  static const String _deviceIdKey = 'device_id';
 
   // Get current token (fetch if missing)
   static Future<String?> getOrCreateToken() async {

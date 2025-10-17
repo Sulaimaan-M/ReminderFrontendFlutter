@@ -1,21 +1,16 @@
-// lib/util/reminder_time_adjuster.dart
 
 import '../model/reminder.dart';
 
 class ReminderTimeAdjuster {
-  /// Adjusts remindAt to the next future occurrence based on interval
   static DateTime adjustToFuture(DateTime remindAt, IntervalType interval) {
     final now = DateTime.now();
 
-    // If already in future, return as-is
     if (remindAt.isAfter(now)) {
       return remindAt;
     }
 
-    // Adjust based on interval type
     switch (interval) {
       case IntervalType.simple:
-      // For simple reminders, set to same time tomorrow
         return DateTime(
           now.year,
           now.month,
@@ -26,7 +21,6 @@ class ReminderTimeAdjuster {
         );
 
       case IntervalType.daily:
-      // Add days until future
         var adjusted = remindAt;
         while (!adjusted.isAfter(now)) {
           adjusted = adjusted.add(const Duration(days: 1));
@@ -34,7 +28,6 @@ class ReminderTimeAdjuster {
         return adjusted;
 
       case IntervalType.weekly:
-      // Add weeks until future
         var adjusted = remindAt;
         while (!adjusted.isAfter(now)) {
           adjusted = adjusted.add(const Duration(days: 7));
@@ -42,7 +35,6 @@ class ReminderTimeAdjuster {
         return adjusted;
 
       case IntervalType.monthly:
-      // Add months until future
         var adjusted = remindAt;
         while (!adjusted.isAfter(now)) {
           // Handle month overflow (e.g., Jan 31 + 1 month = Feb 28/29)
@@ -56,10 +48,8 @@ class ReminderTimeAdjuster {
         return adjusted;
 
       case IntervalType.yearly:
-      // Add years until future
         var adjusted = remindAt;
         while (!adjusted.isAfter(now)) {
-          // Handle leap year (Feb 29)
           if (adjusted.month == 2 && adjusted.day == 29) {
             final nextYear = adjusted.year + 1;
             final isLeap = _isLeapYear(nextYear);

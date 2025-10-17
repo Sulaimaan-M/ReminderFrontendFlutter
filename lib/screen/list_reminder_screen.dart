@@ -1,5 +1,3 @@
-// lib/screen/list_reminder_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:reminder_app/screen/view_reminder_screen.dart';
 import '../model/reminder.dart';

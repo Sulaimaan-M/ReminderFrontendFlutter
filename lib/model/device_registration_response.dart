@@ -1,7 +1,6 @@
-// models/device_registration_response.dart
 class DeviceRegistrationResponse {
   final bool success;
-  final int? deviceId; // Use int? since ID may be null on failure
+  final int? deviceId;
   final String? errorMessage;
 
   DeviceRegistrationResponse({

@@ -1,5 +1,3 @@
-// lib/service/fcm_notification_service.dart
-
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -67,7 +65,6 @@ class FCMNotificationService {
       return;
     }
 
-    // ✅ SAFE 32-BIT ID: Use microseconds mod max int32
     final int id = DateTime.now().microsecondsSinceEpoch % 2147483647;
 
     final AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -78,7 +75,6 @@ class FCMNotificationService {
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,
-      // ✅ Ensure channel is recreated if deleted
       channelShowBadge: true,
       visibility: NotificationVisibility.public,
     );
@@ -129,7 +125,6 @@ class FCMNotificationService {
       return;
     }
 
-    // ✅ SAFE 32-BIT ID IN BACKGROUND
     final int id = DateTime.now().microsecondsSinceEpoch % 2147483647;
 
     final AndroidNotificationDetails androidPlatformChannelSpecifics =

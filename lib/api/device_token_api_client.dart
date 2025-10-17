@@ -1,4 +1,3 @@
-// api/device_token_api_client.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;

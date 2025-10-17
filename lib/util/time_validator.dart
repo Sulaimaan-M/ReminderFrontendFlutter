@@ -1,5 +1,3 @@
-// lib/utils/time_validator.dart
-
 String? validateTime(String? input) {
   if (input == null || input.trim().isEmpty) return 'Required';
   final parts = input.split(':');

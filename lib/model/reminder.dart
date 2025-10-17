@@ -1,5 +1,3 @@
-// lib/model/reminder.dart
-
 import '../util/timezone_helper.dart';
 
 enum IntervalType {
@@ -48,9 +46,8 @@ class Reminder {
 
   /// Creates a Reminder from backend JSON (UTC time) and converts to local time
   factory Reminder.fromBackendJson(Map<String, dynamic> json) {
-    // 🔑 FIX: Use correct field names from backend
-    final text = json['text'] as String?; // 👈 'text' not 'reminderTxt'
-    final intervalTypeStr = json['intervalType'] as String?; // 👈 'intervalType' not 'interval'
+    final text = json['text'] as String?;
+    final intervalTypeStr = json['intervalType'] as String?;
     final remindAtStr = json['remindAt'] as String?;
     final deviceToken = json['deviceToken'] as Map<String, dynamic>?;
     final deviceId = deviceToken?['id'] as int?;

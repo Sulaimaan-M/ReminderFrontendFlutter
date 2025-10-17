@@ -1,5 +1,3 @@
-// widget/create_reminder/reminder_text_field.dart
-
 import 'package:flutter/material.dart';
 
 class ReminderTextField extends StatelessWidget {
