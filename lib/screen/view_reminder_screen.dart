@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../model/reminder.dart';
 import '../service/reminder_service.dart';
-import 'create_reminder_screen.dart';
+import 'create_task_screen.dart';
 
 class ViewReminderScreen extends StatelessWidget {
   final Reminder reminder;
@@ -14,7 +14,7 @@ class ViewReminderScreen extends StatelessWidget {
     final time = _formatTime(reminder.remindAt);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reminder')),
+      appBar: AppBar(title: const Text('Task Details')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -95,7 +95,7 @@ class ViewReminderScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateReminderScreen(reminder: reminder),
+        builder: (context) => CreateTaskScreen(reminder: reminder),
       ),
     ).then((result) {
       if (result is Reminder && context.mounted) {
@@ -108,7 +108,7 @@ class ViewReminderScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Reminder?'),
+        title: const Text('Delete Task?'),
         content: const Text('This action cannot be undone.'),
         actions: [
           TextButton(
@@ -128,7 +128,7 @@ class ViewReminderScreen extends StatelessWidget {
       if (context.mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reminder deleted')),
+            const SnackBar(content: Text('Task deleted')),
           );
           Navigator.pop(context, reminder.id);
         } else {

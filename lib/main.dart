@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:reminder_app/screen/list_reminder_screen.dart';
+import 'package:reminder_app/screen/home_screen.dart';
 import 'package:reminder_app/service/device_token_service.dart';
 import 'package:reminder_app/service/fcm_notification_service.dart';
 
@@ -8,10 +8,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // Initialize FCM + Local Notifications
   await FCMNotificationService().initialize();
 
-  // Register FCM token with backend
   final deviceTokenService = DeviceTokenService();
   await deviceTokenService.initialize();
 
@@ -24,7 +22,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: const ReminderListScreen(),
+      home: const HomeScreen(),
     );
   }
 }
