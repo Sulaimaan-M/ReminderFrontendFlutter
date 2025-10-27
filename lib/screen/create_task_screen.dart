@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../model/reminder.dart';
+import '../model/interval_type.dart';
 import '../model/task.dart';
 import '../service/task_service.dart';
 import '../widget/create_task/inline_time_picker.dart';

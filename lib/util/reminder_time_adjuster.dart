@@ -1,5 +1,5 @@
 
-import '../model/reminder.dart';
+import '../model/interval_type.dart';
 
 class ReminderTimeAdjuster {
   static DateTime adjustToFuture(DateTime remindAt, IntervalType interval) {

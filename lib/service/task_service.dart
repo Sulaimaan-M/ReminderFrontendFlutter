@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
+import '../model/interval_type.dart';
 import '../model/task_creation_data.dart';
 import '../model/task.dart';
 import '../api/task_api_client.dart';
 import 'device_token_service.dart';
 import '../util/timezone_helper.dart';
-import '../model/reminder.dart'; // IntervalType enum
 
 class TaskService {
   final TaskApiClient _apiClient;

@@ -1,4 +1,5 @@
-import 'reminder.dart';
+
+import 'interval_type.dart';
 
 class TaskCreationData {
   final String taskText;

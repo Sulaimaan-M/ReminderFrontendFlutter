@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../model/interval_type.dart';
 import '../model/task.dart';
-import '../model/reminder.dart'; // for IntervalType enum and labels
 import '../service/task_service.dart';
 import 'view_task_screen.dart';
 

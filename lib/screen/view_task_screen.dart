@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../model/interval_type.dart';
 import '../model/task.dart';
-import '../model/reminder.dart'; // Needed for IntervalType
 import '../model/reminder_instance.dart';
 import '../service/reminder_service.dart';
 import '../service/task_service.dart';
