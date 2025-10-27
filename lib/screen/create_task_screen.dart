@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import '../model/reminder.dart';
-import '../service/reminder_service.dart';
+import '../model/task.dart';
+import '../service/task_service.dart';
 import '../widget/create_task/inline_time_picker.dart';
 import '../widget/create_task/inline_date_picker.dart';
 import '../widget/create_task/weekly_multi_selector.dart';
 import '../widget/create_task/monthly_selector.dart';
 import '../widget/create_task/inline_yearly_picker.dart';
 import '../model/yearly_selection.dart';
-import '../util/reminder_time_adjuster.dart';
 
 class CreateTaskScreen extends StatefulWidget {
-  final Reminder? reminder;
-  const CreateTaskScreen({super.key, this.reminder});
+  final Task? task; // null => create, non-null => update
+  const CreateTaskScreen({super.key, this.task});
 
   @override
   State<CreateTaskScreen> createState() => _CreateTaskScreenState();
@@ -26,39 +26,39 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   IntervalType _repetition = IntervalType.simple;
 
   DateTime _simpleDate = DateTime.now();
-
   List<int> _selectedWeekdays = [DateTime.now().weekday - 1];
-
   MonthlyMode _monthlyMode = MonthlyMode.singleDay;
   int _monthlySingleDay = DateTime.now().day;
   int _monthlyRangeStart = 1;
   int _monthlyRangeEnd = 7;
-
   YearlySelection _yearlySelection = YearlySelection(DateTime.now().month, DateTime.now().day);
 
   @override
   void initState() {
     super.initState();
-    if (widget.reminder != null) _loadReminder(widget.reminder!);
+    if (widget.task != null) _loadFromTask(widget.task!);
   }
 
-  void _loadReminder(Reminder r) {
-    _textController.text = r.reminderTxt;
-    _hour = r.remindAt.hour;
-    _minute = r.remindAt.minute;
-    _repetition = r.interval;
+  void _loadFromTask(Task t) {
+    _textController.text = t.taskText;
+    _hour = t.nextReminderAt.hour;
+    _minute = t.nextReminderAt.minute;
+    _repetition = t.interval;
+
     if (_repetition == IntervalType.simple) {
-      _simpleDate = r.remindAt;
+      _simpleDate = t.nextReminderAt;
     }
+    // For weekly/monthly/yearly, we don’t yet have pattern details from backend response;
+    // Keep defaults for dynamic section and allow the user to reselect.
   }
 
   @override
   Widget build(BuildContext context) {
+    final isUpdate = widget.task != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: widget.reminder == null
-            ? const Text('New Task')
-            : const Text('Edit Task'),
+        title: Text(isUpdate ? 'Edit Task' : 'New Task'),
         elevation: 0,
       ),
       body: Column(
@@ -81,7 +81,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               ),
             ),
           ),
-          _buildSaveButton(),
+          _buildSaveButton(isUpdate),
         ],
       ),
     );
@@ -161,111 +161,96 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   Widget _buildDynamicSection() {
     switch (_repetition) {
       case IntervalType.simple:
-        return _buildSimpleSection();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Date',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            InlineDatePicker(
+              date: _simpleDate,
+              onDateChanged: (date) => setState(() => _simpleDate = date),
+            ),
+          ],
+        );
       case IntervalType.weekly:
-        return _buildWeeklySection();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Days of Week',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            WeeklyMultiSelector(
+              selectedDays: _selectedWeekdays,
+              onDaysChanged: (days) => setState(() => _selectedWeekdays = days),
+            ),
+          ],
+        );
       case IntervalType.monthly:
-        return _buildMonthlySection();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Monthly Schedule',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            MonthlySelector(
+              mode: _monthlyMode,
+              singleDay: _monthlySingleDay,
+              rangeStart: _monthlyRangeStart,
+              rangeEnd: _monthlyRangeEnd,
+              onModeChanged: (mode) => setState(() => _monthlyMode = mode),
+              onSingleDayChanged: (day) => setState(() => _monthlySingleDay = day),
+              onRangeStartChanged: (day) => setState(() => _monthlyRangeStart = day),
+              onRangeEndChanged: (day) => setState(() => _monthlyRangeEnd = day),
+            ),
+          ],
+        );
       case IntervalType.yearly:
-        return _buildYearlySection();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Date (Month & Day)',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            InlineYearlyPicker(
+              selection: _yearlySelection,
+              onSelectionChanged: (sel) => setState(() => _yearlySelection = sel),
+            ),
+          ],
+        );
       case IntervalType.daily:
       default:
         return const SizedBox.shrink();
     }
   }
 
-  Widget _buildSimpleSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Date',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InlineDatePicker(
-          date: _simpleDate,
-          onDateChanged: (date) => setState(() => _simpleDate = date),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWeeklySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Days of Week',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        WeeklyMultiSelector(
-          selectedDays: _selectedWeekdays,
-          onDaysChanged: (days) => setState(() => _selectedWeekdays = days),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMonthlySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Monthly Schedule',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        MonthlySelector(
-          mode: _monthlyMode,
-          singleDay: _monthlySingleDay,
-          rangeStart: _monthlyRangeStart,
-          rangeEnd: _monthlyRangeEnd,
-          onModeChanged: (mode) => setState(() => _monthlyMode = mode),
-          onSingleDayChanged: (day) => setState(() => _monthlySingleDay = day),
-          onRangeStartChanged: (day) => setState(() => _monthlyRangeStart = day),
-          onRangeEndChanged: (day) => setState(() => _monthlyRangeEnd = day),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildYearlySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Date (Month & Day)',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InlineYearlyPicker(
-          selection: _yearlySelection,
-          onSelectionChanged: (sel) => setState(() => _yearlySelection = sel),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSaveButton() {
+  Widget _buildSaveButton(bool isUpdate) {
     return Container(
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
         color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            blurRadius: 8,
+            offset: const Offset(0, -3),
           ),
         ],
       ),
@@ -273,68 +258,69 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _validateAndSave,
+            onPressed: () => _validateAndSave(isUpdate),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: Text(
-              widget.reminder == null ? 'Create Task' : 'Update Task',
-              style: const TextStyle(fontSize: 16),
-            ),
+            child: Text(isUpdate ? 'Update Task' : 'Create Task'),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _validateAndSave() async {
+  Future<void> _validateAndSave(bool isUpdate) async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_repetition == IntervalType.weekly && _selectedWeekdays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one day for weekly reminder')),
-      );
-      return;
-    }
-
-    await _onSave();
-  }
-
-  Future<void> _onSave() async {
-    DateTime remindAt;
-    if (_repetition == IntervalType.simple) {
-      remindAt = DateTime(_simpleDate.year, _simpleDate.month, _simpleDate.day, _hour, _minute);
-    } else {
-      final now = DateTime.now();
-      remindAt = DateTime(now.year, now.month, now.day, _hour, _minute);
-    }
-
-    remindAt = ReminderTimeAdjuster.adjustToFuture(remindAt, _repetition);
-
-    final deviceId = await ReminderService().getDeviceId() ?? 0;
-
-    final reminder = Reminder(
-      id: widget.reminder?.id,
-      reminderTxt: _textController.text.trim(),
-      remindAt: remindAt,
-      interval: _repetition,
-      deviceId: deviceId,
+    final ok = isUpdate
+        ? await TaskService().updateTask(
+      taskId: widget.task!.id!,
+      taskText: _textController.text.trim(),
+      hour: _hour,
+      minute: _minute,
+      recurrenceType: _repetition,
+      simpleDate: _repetition == IntervalType.simple ? _simpleDate : null,
+      weeklyDays: _repetition == IntervalType.weekly ? _selectedWeekdays : null,
+      monthlySingleDay: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.singleDay
+          ? _monthlySingleDay
+          : null,
+      monthlyRangeStart: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeStart
+          : null,
+      monthlyRangeEnd: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeEnd
+          : null,
+      yearlyMonth: _repetition == IntervalType.yearly ? _yearlySelection.month : null,
+      yearlyDay: _repetition == IntervalType.yearly ? _yearlySelection.day : null,
+    )
+        : await TaskService().createTask(
+      taskText: _textController.text.trim(),
+      hour: _hour,
+      minute: _minute,
+      recurrenceType: _repetition,
+      simpleDate: _repetition == IntervalType.simple ? _simpleDate : null,
+      weeklyDays: _repetition == IntervalType.weekly ? _selectedWeekdays : null,
+      monthlySingleDay: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.singleDay
+          ? _monthlySingleDay
+          : null,
+      monthlyRangeStart: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeStart
+          : null,
+      monthlyRangeEnd: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeEnd
+          : null,
+      yearlyMonth: _repetition == IntervalType.yearly ? _yearlySelection.month : null,
+      yearlyDay: _repetition == IntervalType.yearly ? _yearlySelection.day : null,
     );
 
-    final service = ReminderService();
-    Reminder? result;
-
-    if (widget.reminder != null) {
-      result = await service.editReminder(reminder);
-    } else {
-      result = await service.createReminder(reminder);
-    }
-
     if (!mounted) return;
-    if (result != null) {
-      Navigator.pop(context, result);
+
+    if (ok) {
+      Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save task')),
+      );
     }
   }
 }

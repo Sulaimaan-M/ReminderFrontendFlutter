@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:reminder_app/screen/home_screen.dart';
 import 'package:reminder_app/service/device_token_service.dart';
 import 'package:reminder_app/service/fcm_notification_service.dart';
+import 'package:reminder_app/util/route_observer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorObservers: [routeObserver],
       home: const HomeScreen(),
     );
   }

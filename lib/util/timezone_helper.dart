@@ -1,3 +1,4 @@
+
 String toZonedDateTimeString(DateTime localDateTime) {
   final local = localDateTime.isUtc ? localDateTime.toLocal() : localDateTime;
   final offset = local.timeZoneOffset;
@@ -16,4 +17,20 @@ String toZonedDateTimeString(DateTime localDateTime) {
       '${local.second.toString().padLeft(2, '0')}';
 
   return '$dateString$offsetString';
+}
+
+String getDeviceTimezone() {
+  try {
+    final now = DateTime.now();
+    final offset = now.timeZoneOffset;
+    final hours = offset.inHours;
+    final minutes = offset.inMinutes.abs() % 60;
+    final sign = hours >= 0 ? '+' : '-';
+    final paddedHours = hours.abs().toString().padLeft(2, '0');
+    final paddedMinutes = minutes.toString().padLeft(2, '0');
+
+    return '$sign$paddedHours:$paddedMinutes';
+  } catch (e) {
+    return '+00:00';
+  }
 }

@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import '../model/reminder.dart';
 import '../model/reminder_instance.dart';
-import '../widget/todo/simple_task_card.dart';
-import '../widget/todo/reminder_instance_card.dart';
+import '../service/reminder_service.dart';
 
 class TodoListScreen extends StatefulWidget {
   const TodoListScreen({super.key});
 
   @override
-  State<TodoListScreen> createState() => _TodoListScreenState();
+  State<TodoListScreen> createState() => TodoListScreenState();
 }
 
-class _TodoListScreenState extends State<TodoListScreen> with AutomaticKeepAliveClientMixin {
+class TodoListScreenState extends State<TodoListScreen>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  final List<Reminder> _simpleTasks = [
+  // Top section (Simple Tasks) remains dummy for now
+  List<Reminder> _simpleTasks = [
     Reminder(
       id: 1,
       reminderTxt: 'Doctor appointment',
@@ -23,42 +24,46 @@ class _TodoListScreenState extends State<TodoListScreen> with AutomaticKeepAlive
       interval: IntervalType.simple,
       deviceId: 1,
     ),
-    Reminder(
-      id: 2,
-      reminderTxt: 'Pay electricity bill',
-      remindAt: DateTime(2025, 10, 30, 10, 0),
-      interval: IntervalType.simple,
-      deviceId: 1,
-    ),
-    Reminder(
-      id: 3,
-      reminderTxt: 'Submit project report',
-      remindAt: DateTime(2025, 11, 1, 17, 0),
-      interval: IntervalType.simple,
-      deviceId: 1,
-    ),
   ];
 
-  final List<ReminderInstance> _reminderInstances = [
-    ReminderInstance(
-      id: 101,
-      taskText: 'Take morning medicine',
-      remindedAt: DateTime(2025, 10, 26, 9, 0),
-      taskType: IntervalType.daily,
-    ),
-    ReminderInstance(
-      id: 102,
-      taskText: 'Weekly team meeting',
-      remindedAt: DateTime(2025, 10, 21, 14, 0),
-      taskType: IntervalType.weekly,
-    ),
-    ReminderInstance(
-      id: 103,
-      taskText: 'Workout session',
-      remindedAt: DateTime(2025, 10, 25, 18, 30),
-      taskType: IntervalType.daily,
-    ),
-  ];
+  // Bottom section (Reminders) - now fetched from backend
+  List<ReminderInstance> _reminderInstances = [];
+  bool _loadingReminders = true;
+  String? _errorReminders;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPendingReminders();
+  }
+
+  Future<void> reload() async {
+    // Simple tasks remain dummy
+    await _loadPendingReminders();
+  }
+
+  Future<void> _loadPendingReminders() async {
+    setState(() {
+      _loadingReminders = true;
+      _errorReminders = null;
+    });
+
+    try {
+      final service = ReminderService();
+      final list = await service.getPendingReminders();
+      if (!mounted) return;
+      setState(() {
+        _reminderInstances = list;
+        _loadingReminders = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingReminders = false;
+        _errorReminders = e.toString();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,103 +71,121 @@ class _TodoListScreenState extends State<TodoListScreen> with AutomaticKeepAlive
 
     return CustomScrollView(
       slivers: [
-        _buildSectionHeader(context, 'Simple Tasks'),
-        _buildSimpleTasksList(),
-        _buildDivider(),
-        _buildSectionHeader(context, 'Reminders'),
-        _buildReminderInstancesList(),
+        // Simple Tasks (top; still dummy)
+        _header(context, 'Simple Tasks'),
+        _simpleTasks.isEmpty
+            ? _emptyText('No simple tasks')
+            : SliverList.builder(
+          itemCount: _simpleTasks.length,
+          itemBuilder: (context, index) {
+            final task = _simpleTasks[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                leading: const Icon(Icons.event_outlined),
+                title: Text(task.reminderTxt),
+                subtitle: Text(_formatDateTime(task.remindAt)),
+              ),
+            );
+          },
+        ),
+
+        _divider(),
+
+        // Reminders (bottom; fetched)
+        _header(context, 'Reminders'),
+        if (_loadingReminders)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          )
+        else if (_errorReminders != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                  const SizedBox(height: 8),
+                  Text('Failed to load reminders: $_errorReminders'),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: _loadPendingReminders,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_reminderInstances.isEmpty)
+            _emptyText('No reminders')
+          else
+            SliverList.builder(
+              itemCount: _reminderInstances.length,
+              itemBuilder: (context, index) {
+                final inst = _reminderInstances[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined),
+                    title: Text(inst.taskText),
+                    subtitle: Text('Reminded at: ${_formatDateTime(inst.remindedAt)}'),
+                    // Show a gray circle for incomplete (these are all incomplete)
+                    trailing: Icon(
+                      inst.isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                      color: inst.isCompleted ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                );
+              },
+            ),
       ],
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title) {
+  SliverToBoxAdapter _header(BuildContext context, String title) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Text(
           title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style:
+          Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  Widget _buildSimpleTasksList() {
-    if (_simpleTasks.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(
-            'No simple tasks',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ),
-      );
-    }
-
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final task = _simpleTasks[index];
-          return SimpleTaskCard(
-            task: task,
-            onCompleted: () {
-              setState(() {
-                _simpleTasks.removeWhere((t) => t.id == task.id);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${task.reminderTxt} completed!')),
-              );
-            },
-          );
-        },
-        childCount: _simpleTasks.length,
+  SliverToBoxAdapter _emptyText(String text) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Text(text, style: TextStyle(color: Colors.grey[600])),
       ),
     );
   }
 
-  Widget _buildReminderInstancesList() {
-    if (_reminderInstances.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(
-            'No reminders',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ),
-      );
-    }
-
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final instance = _reminderInstances[index];
-          return ReminderInstanceCard(
-            instance: instance,
-            onCompleted: () {
-              setState(() {
-                _reminderInstances.removeWhere((r) => r.id == instance.id);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${instance.taskText} completed!')),
-              );
-            },
-          );
-        },
-        childCount: _reminderInstances.length,
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
+  SliverToBoxAdapter _divider() {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         child: Divider(thickness: 2, color: Colors.grey[300]),
       ),
     );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final date = '${dt.month}/${dt.day}/${dt.year}';
+    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour < 12 ? 'AM' : 'PM';
+    return '$date at $hour:$minute $ampm';
   }
 }
