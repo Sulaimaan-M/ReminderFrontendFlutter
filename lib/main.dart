@@ -11,7 +11,7 @@ Future<void> main() async {
   // Initialize FCM + Local Notifications
   await FCMNotificationService().initialize();
 
-  // Register FCM token with your backend
+  // Register FCM token with backend
   final deviceTokenService = DeviceTokenService();
   await deviceTokenService.initialize();
 
