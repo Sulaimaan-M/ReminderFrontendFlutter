@@ -23,19 +23,17 @@ class ReminderService {
     return data.map(_parseInstance).where((instance) => instance != null).cast<ReminderInstance>().toList();
   }
 
-  // Add this missing method
-  Future<List<ReminderInstance>> getRemindersByTask(int taskId) async {
-    // Since your backend doesn't have this endpoint, we'll need to implement a workaround
-    // For now, we'll return an empty list and you can implement the backend endpoint later
-    debugPrint('⚠️ getRemindersByTask not implemented in backend. Returning empty list.');
-    return [];
-
-    // When you implement the backend endpoint, it would look like this:
-    /*
-    final List<Map<String, dynamic>> data = await _apiClient.getByTask(taskId);
-    debugPrint('📦 Reminders by task received: ${data.length}');
-    return data.map(_parseInstance).where((instance) => instance != null).cast<ReminderInstance>().toList();
-    */
+  // NEW METHOD: Complete a reminder
+  Future<bool> completeReminder(int reminderId) async {
+    debugPrint('🔔 ReminderService.completeReminder | reminderId=$reminderId');
+    try {
+      final success = await _apiClient.completeReminder(reminderId);
+      debugPrint('✅ ReminderService.completeReminder | success=$success');
+      return success;
+    } catch (e) {
+      debugPrint('❌ ReminderService.completeReminder | Error: $e');
+      return false;
+    }
   }
 
   ReminderInstance? _parseInstance(Map<String, dynamic> json) {
@@ -77,7 +75,7 @@ class ReminderService {
     }
 
     // Parse other fields with null checks and defaults
-    final int id = json['reminderId'] as int? ?? 0; // Use reminderId from backend
+    final int id = json['reminderId'] as int? ?? 0;
     final String taskText = (json['taskTxt'] as String?) ?? 'Untitled';
     final bool isCompleted = (json['isCompleted'] as bool?) ?? false;
 

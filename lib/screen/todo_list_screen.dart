@@ -46,7 +46,7 @@ class TodoListScreenState extends State<TodoListScreen>
     });
 
     try {
-      // Load simple tasks from backend
+      // Load simple tasks using the new method that preserves reminder data
       final taskService = TaskService();
       final deviceId = await taskService.getDeviceId();
       debugPrint('📱 TodoListScreen: Device ID = $deviceId');
@@ -55,57 +55,28 @@ class TodoListScreenState extends State<TodoListScreen>
         throw Exception('No device ID found');
       }
 
-      // Fetch both recurring and simple tasks
-      final allTasks = await taskService.getTasks();
-      debugPrint('📥 TodoListScreen: Total tasks fetched = ${allTasks.length}');
+      // Use the new method that gets simple tasks with embedded reminder data
+      final simpleTasks = await taskService.getSimpleTasksWithReminders();
+      debugPrint('📥 TodoListScreen: Simple tasks with reminders = ${simpleTasks.length}');
 
-      // Load pending reminders
+      // Load pending reminders for other sections
       final reminderService = ReminderService();
       final pendingReminders = await reminderService.getPendingReminders();
       debugPrint('🔔 TodoListScreen: Pending reminders = ${pendingReminders.length}');
 
-      // Filter for simple tasks only
-      final simpleTasks = allTasks.where((task) => task.interval == IntervalType.simple).toList();
-      debugPrint('📋 TodoListScreen: Simple tasks = ${simpleTasks.length}');
-
-      // Convert Task objects to SimpleTask objects with proper reminder status
-      final List<SimpleTask> convertedSimpleTasks = simpleTasks.map((task) {
-        // Check if this task has any pending reminders
-        final taskReminders = pendingReminders.where((reminder) => reminder.taskId == task.id).toList();
-
-        // For simple tasks, we typically expect 0 or 1 reminder instance
-        MinimalReminder? reminderInstance;
-        if (taskReminders.isNotEmpty) {
-          final reminder = taskReminders.first;
-          reminderInstance = MinimalReminder(
-            id: reminder.id,
-            remindedAt: reminder.remindedAt,
-            isCompleted: reminder.isCompleted,
-          );
-          debugPrint('📌 TodoListScreen: Task ${task.id} has reminder ${reminder.id}');
-        } else {
-          debugPrint('⏰ TodoListScreen: Task ${task.id} has no reminders yet');
-        }
-
-        return SimpleTask(
-          id: task.id ?? 0,
-          taskTxt: task.taskText,
-          nextReminderAt: task.nextReminderAt,
-          reminder: reminderInstance,
-        );
-      }).toList();
-
       if (!mounted) return;
 
       setState(() {
-        _simpleTasks = convertedSimpleTasks;
+        _simpleTasks = simpleTasks;
         _reminderInstances = pendingReminders;
         _loading = false;
         _sortSimpleTasks();
-        debugPrint('✅ TodoListScreen: Data loaded successfully. Simple tasks: ${convertedSimpleTasks.length}, Reminders: ${pendingReminders.length}');
+        _logSortingResults(); // Log the final sorting results for verification
+        debugPrint('✅ TodoListScreen: Data loaded successfully. Simple tasks: ${simpleTasks.length}, Reminders: ${pendingReminders.length}');
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('❌ TodoListScreen: Error loading data: $e');
+      debugPrint('StackTrace: $stackTrace');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -115,18 +86,44 @@ class TodoListScreenState extends State<TodoListScreen>
   }
 
   void _sortSimpleTasks() {
-    _simpleTasks.sort((a, b) {
-      bool aHasReminder = a.reminder != null;
-      bool bHasReminder = b.reminder != null;
-      bool aIsCompleted = a.reminder?.isCompleted ?? false;
-      bool bIsCompleted = b.reminder?.isCompleted ?? false;
+    // Sort according to specification:
+    // Tasks with reminders (checkmark) at the top
+    // Tasks without reminders (bell) at the bottom
+    // Within each group, sort by next reminder time
 
-      if (aIsCompleted && !bIsCompleted) return 1;
-      if (!aIsCompleted && bIsCompleted) return -1;
-      if (aHasReminder && !bHasReminder) return -1;
-      if (!aHasReminder && bHasReminder) return 1;
+    _simpleTasks.sort((a, b) {
+      final bool aHasReminder = a.reminder != null;
+      final bool bHasReminder = b.reminder != null;
+
+      // Primary sort: tasks with reminders first
+      if (aHasReminder && !bHasReminder) return -1;  // a (has reminder) comes first
+      if (!aHasReminder && bHasReminder) return 1;   // b (has reminder) comes first
+
+      // Secondary sort: by next reminder time (ascending)
       return a.nextReminderAt.compareTo(b.nextReminderAt);
     });
+  }
+
+  void _logSortingResults() {
+    debugPrint('📊 Sorting Results:');
+    for (int i = 0; i < _simpleTasks.length; i++) {
+      final task = _simpleTasks[i];
+      final hasReminder = task.reminder != null;
+      final isCompleted = task.reminder?.isCompleted ?? false;
+      debugPrint('   $i. Task ${task.id}: "${task.taskTxt}" | Reminder: ${hasReminder ? 'YES' : 'NO'} | Completed: $isCompleted | Time: ${task.nextReminderAt}');
+    }
+  }
+
+  // Called when a task is updated/completed
+  Future<void> _onTaskUpdated() async {
+    debugPrint('🔄 TodoListScreen: Task updated, reloading data...');
+    await _loadAllData(); // Reload all data to reflect changes
+  }
+
+  // Called when a reminder instance is completed
+  void _onReminderCompleted() {
+    debugPrint('🔄 TodoListScreen: Reminder completed, reloading data...');
+    _loadAllData(); // Reload data to reflect changes
   }
 
   void setStateIfMounted(VoidCallback fn) {
@@ -174,16 +171,11 @@ class TodoListScreenState extends State<TodoListScreen>
               itemCount: _simpleTasks.length,
               itemBuilder: (context, index) {
                 final simpleTask = _simpleTasks[index];
-                debugPrint('📱 Building SimpleTaskCard for task ${simpleTask.id}: ${simpleTask.taskTxt}, Reminder: ${simpleTask.reminder?.id}, Completed: ${simpleTask.reminder?.isCompleted}');
+                debugPrint('📱 Building SimpleTaskCard ${index + 1}/${_simpleTasks.length} - Task ID: ${simpleTask.id}, Has Reminder: ${simpleTask.reminder != null}, Reminder ID: ${simpleTask.reminder?.id}');
                 return SimpleTaskCard(
                   key: ValueKey('simple_task_${simpleTask.id}'),
                   task: simpleTask,
-                  onActionTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Mark Simple Task (ID: ${simpleTask.id}) as complete - API needed.')),
-                    );
-                    // TODO: Implement actual completion logic
-                  },
+                  onTaskUpdated: _onTaskUpdated,
                 );
               },
             ),
@@ -202,12 +194,7 @@ class TodoListScreenState extends State<TodoListScreen>
                 return ReminderInstanceCard(
                   key: ValueKey('instance_${inst.id}'),
                   instance: inst,
-                  onCompleted: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Mark Instance (ID: ${inst.id}) as complete - API needed.')),
-                    );
-                    // TODO: Implement actual completion logic
-                  },
+                  onCompleted: _onReminderCompleted, // Updated callback
                 );
               },
             ),

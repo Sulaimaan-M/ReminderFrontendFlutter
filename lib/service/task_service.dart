@@ -36,8 +36,8 @@ class TaskService {
         return RecurringTask.fromJson(data);
       }).toList();
 
-      // Convert simple tasks
-      final simpleTasks = simpleTasksData.map((data) {
+      // Convert simple tasks - but we need to preserve the reminder data
+      final simpleTasksFromData = simpleTasksData.map((data) {
         return SimpleTask.fromJson(data);
       }).toList();
 
@@ -57,13 +57,13 @@ class TaskService {
         ));
       }
 
-      // Add simple tasks
-      for (var simpleTask in simpleTasks) {
+      // Add simple tasks - but we need to extract the data properly
+      for (var simpleTaskData in simpleTasksData) {
         tasks.add(Task(
-          id: simpleTask.id,
-          taskText: simpleTask.taskTxt,
+          id: simpleTaskData['id'] as int,
+          taskText: simpleTaskData['taskTxt'] as String,
           createdAt: DateTime.now(), // Backend doesn't send this, so use current time
-          nextReminderAt: simpleTask.nextReminderAt,
+          nextReminderAt: DateTime.parse(simpleTaskData['nextReminderAt'] as String),
           cronExpression: '', // Backend doesn't send this in simple task response
           interval: IntervalType.simple,
           deviceId: deviceId,
@@ -73,6 +73,32 @@ class TaskService {
       return tasks;
     } catch (e) {
       debugPrint('❌ TaskService.getTasks | Error: $e');
+      return [];
+    }
+  }
+
+  // Add a new method to get simple tasks with full data including reminders
+  Future<List<SimpleTask>> getSimpleTasksWithReminders() async {
+    final deviceId = await getDeviceId();
+    debugPrint('🔎 TaskService.getSimpleTasksWithReminders | deviceId=$deviceId');
+    if (deviceId == null) {
+      debugPrint('❌ TaskService.getSimpleTasksWithReminders | no device id');
+      return [];
+    }
+
+    try {
+      // Fetch simple tasks directly - this preserves the embedded reminder data
+      final simpleTasksData = await _apiClient.getSimpleTasksByDevice(deviceId);
+      debugPrint('📦 TaskService.getSimpleTasksWithReminders | simple: ${simpleTasksData.length}');
+
+      // Convert simple tasks with embedded reminder data
+      final simpleTasks = simpleTasksData.map((data) {
+        return SimpleTask.fromJson(data);
+      }).toList();
+
+      return simpleTasks;
+    } catch (e) {
+      debugPrint('❌ TaskService.getSimpleTasksWithReminders | Error: $e');
       return [];
     }
   }
