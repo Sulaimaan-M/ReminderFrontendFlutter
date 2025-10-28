@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import '../../model/simple_task.dart';
-
 
 class SimpleTaskCard extends StatelessWidget {
   final SimpleTask task;
@@ -17,27 +15,26 @@ class SimpleTaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // --- Logic based on reminder instance existence ---
     final bool reminderExists = task.reminder != null;
+    final bool isCompleted = task.reminder?.isCompleted ?? false;
 
     final IconData trailingIconData = reminderExists
-        ? Icons.check_circle_outline // Checkmark if reminder exists
-        : Icons.notifications_none; // Bell if reminder is null
+        ? (isCompleted ? Icons.check_circle : Icons.check_circle_outline)
+        : Icons.notifications_none;
 
     final Color iconColor = reminderExists
-        ? Colors.grey.shade600
+        ? (isCompleted ? Colors.green : Colors.grey.shade600)
         : Theme.of(context).colorScheme.primary;
 
-    final String tooltip = reminderExists ? 'Mark as completed' : 'Pending';
-    // --- End Logic ---
-
-    // Determine if the reminder instance (if it exists) is marked completed
-    final bool isCompleted = task.reminder?.isCompleted ?? false;
+    final String tooltip = reminderExists
+        ? (isCompleted ? 'Completed' : 'Mark as completed')
+        : 'Pending reminder';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         title: Text(
-          task.taskTxt, // ← UPDATED
+          task.taskTxt,
           style: TextStyle(
             fontSize: 16,
             decoration: isCompleted ? TextDecoration.lineThrough : null,
@@ -47,7 +44,7 @@ class SimpleTaskCard extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
           child: Text(
-            _formatDateTime(task.nextReminderAt.toLocal()), // ← UPDATED
+            _formatDateTime(task.nextReminderAt.toLocal()),
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey[700],

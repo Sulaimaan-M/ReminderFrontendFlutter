@@ -4,9 +4,9 @@ import '../model/minimal_reminder.dart';
 import '../model/reminder_instance.dart';
 import '../model/interval_type.dart';
 import '../service/reminder_service.dart';
+import '../service/task_service.dart';
 import '../widget/todo/simple_task_card.dart';
 import '../widget/todo/reminder_instance_card.dart';
-
 
 class TodoListScreen extends StatefulWidget {
   const TodoListScreen({super.key});
@@ -20,56 +20,98 @@ class TodoListScreenState extends State<TodoListScreen>
   @override
   bool get wantKeepAlive => true;
 
-  // --- Use SimpleTask for dummy data ---
-  final List<SimpleTask> _simpleTasks = [
-    // Task where reminder *has* fired (has reminder instance)
-    SimpleTask(
-      id: 2,
-      taskTxt: 'Buy groceries (Reminder Exists)', // ← FIXED
-      nextReminderAt: DateTime.now().subtract(const Duration(hours: 3)), // ← FIXED
-      reminder: MinimalReminder( // ← FIXED: Changed from ReminderInstance
-        id: 101,
-        remindedAt: DateTime.now().subtract(const Duration(hours: 3)),
-        isCompleted: false,
-      ),
-    ),
-    // Task where reminder has *not* fired yet (reminder instance is null)
-    SimpleTask(
-      id: 1,
-      taskTxt: 'Doctor appointment (Reminder Null)', // ← FIXED
-      nextReminderAt: DateTime.now().add(const Duration(days: 1, hours: 2)), // ← FIXED
-      reminder: null,
-    ),
-    // Another task where reminder has *not* fired yet
-    SimpleTask(
-      id: 3,
-      taskTxt: 'Call plumber (Reminder Null)', // ← FIXED
-      nextReminderAt: DateTime.now().add(const Duration(minutes: 30)), // ← FIXED
-      reminder: null,
-    ),
-    // Task where reminder *has* fired AND is marked completed
-    SimpleTask(
-      id: 4,
-      taskTxt: 'Pay bills (Reminder Exists, Completed)', // ← FIXED
-      nextReminderAt: DateTime.now().subtract(const Duration(days: 2)), // ← FIXED
-      reminder: MinimalReminder( // ← FIXED: Changed from ReminderInstance
-        id: 102,
-        remindedAt: DateTime.now().subtract(const Duration(days: 2)),
-        isCompleted: true,
-      ),
-    ),
-  ];
-  // --- End Dummy Data ---
-
+  List<SimpleTask> _simpleTasks = [];
   List<ReminderInstance> _reminderInstances = [];
-  bool _loadingReminders = true;
-  String? _errorReminders;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadPendingReminders();
-    _sortSimpleTasks();
+    _loadAllData();
+  }
+
+  Future<void> reload() async {
+    if (!mounted) return;
+    await _loadAllData();
+  }
+
+  Future<void> _loadAllData() async {
+    debugPrint('🔄 TodoListScreen: Loading all data...');
+
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      // Load simple tasks from backend
+      final taskService = TaskService();
+      final deviceId = await taskService.getDeviceId();
+      debugPrint('📱 TodoListScreen: Device ID = $deviceId');
+
+      if (deviceId == null) {
+        throw Exception('No device ID found');
+      }
+
+      // Fetch both recurring and simple tasks
+      final allTasks = await taskService.getTasks();
+      debugPrint('📥 TodoListScreen: Total tasks fetched = ${allTasks.length}');
+
+      // Load pending reminders
+      final reminderService = ReminderService();
+      final pendingReminders = await reminderService.getPendingReminders();
+      debugPrint('🔔 TodoListScreen: Pending reminders = ${pendingReminders.length}');
+
+      // Filter for simple tasks only
+      final simpleTasks = allTasks.where((task) => task.interval == IntervalType.simple).toList();
+      debugPrint('📋 TodoListScreen: Simple tasks = ${simpleTasks.length}');
+
+      // Convert Task objects to SimpleTask objects with proper reminder status
+      final List<SimpleTask> convertedSimpleTasks = simpleTasks.map((task) {
+        // Check if this task has any pending reminders
+        final taskReminders = pendingReminders.where((reminder) => reminder.taskId == task.id).toList();
+
+        // For simple tasks, we typically expect 0 or 1 reminder instance
+        MinimalReminder? reminderInstance;
+        if (taskReminders.isNotEmpty) {
+          final reminder = taskReminders.first;
+          reminderInstance = MinimalReminder(
+            id: reminder.id,
+            remindedAt: reminder.remindedAt,
+            isCompleted: reminder.isCompleted,
+          );
+          debugPrint('📌 TodoListScreen: Task ${task.id} has reminder ${reminder.id}');
+        } else {
+          debugPrint('⏰ TodoListScreen: Task ${task.id} has no reminders yet');
+        }
+
+        return SimpleTask(
+          id: task.id ?? 0,
+          taskTxt: task.taskText,
+          nextReminderAt: task.nextReminderAt,
+          reminder: reminderInstance,
+        );
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _simpleTasks = convertedSimpleTasks;
+        _reminderInstances = pendingReminders;
+        _loading = false;
+        _sortSimpleTasks();
+        debugPrint('✅ TodoListScreen: Data loaded successfully. Simple tasks: ${convertedSimpleTasks.length}, Reminders: ${pendingReminders.length}');
+      });
+    } catch (e) {
+      debugPrint('❌ TodoListScreen: Error loading data: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
   }
 
   void _sortSimpleTasks() {
@@ -83,41 +125,8 @@ class TodoListScreenState extends State<TodoListScreen>
       if (!aIsCompleted && bIsCompleted) return -1;
       if (aHasReminder && !bHasReminder) return -1;
       if (!aHasReminder && bHasReminder) return 1;
-      return a.nextReminderAt.compareTo(b.nextReminderAt); // ← FIXED
+      return a.nextReminderAt.compareTo(b.nextReminderAt);
     });
-  }
-
-
-  Future<void> reload() async {
-    if (!mounted) return;
-    setStateIfMounted(() {
-      _loadingReminders = true;
-      _errorReminders = null;
-      _sortSimpleTasks();
-    });
-    await _loadPendingReminders();
-  }
-
-  Future<void> _loadPendingReminders() async {
-    if (!mounted) return;
-    setStateIfMounted(() {
-      _loadingReminders = true;
-      _errorReminders = null;
-    });
-
-    try {
-      final service = ReminderService();
-      final list = await service.getPendingReminders();
-      setStateIfMounted(() {
-        _reminderInstances = list;
-        _loadingReminders = false;
-      });
-    } catch (e) {
-      setStateIfMounted(() {
-        _loadingReminders = false;
-        _errorReminders = e.toString();
-      });
-    }
   }
 
   void setStateIfMounted(VoidCallback fn) {
@@ -130,48 +139,50 @@ class TodoListScreenState extends State<TodoListScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text('Error: $_error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadAllData,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
-      onRefresh: reload,
+      onRefresh: _loadAllData,
       child: CustomScrollView(
         slivers: [
           // Simple Tasks
           _header(context, 'One-Time Tasks'),
-          if (_loadingReminders && _simpleTasks.isEmpty)
-            SliverToBoxAdapter(/* Loading */)
-          else if (_simpleTasks.isEmpty)
+          if (_simpleTasks.isEmpty)
             _emptyText('No one-time tasks scheduled')
           else
             SliverList.builder(
               itemCount: _simpleTasks.length,
               itemBuilder: (context, index) {
                 final simpleTask = _simpleTasks[index];
+                debugPrint('📱 Building SimpleTaskCard for task ${simpleTask.id}: ${simpleTask.taskTxt}, Reminder: ${simpleTask.reminder?.id}, Completed: ${simpleTask.reminder?.isCompleted}');
                 return SimpleTaskCard(
                   key: ValueKey('simple_task_${simpleTask.id}'),
                   task: simpleTask,
                   onActionTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Mark Simple Task (ID: ${simpleTask.id}, ReminderID: ${simpleTask.reminder?.id}) as complete - API needed.')),
+                      SnackBar(content: Text('Mark Simple Task (ID: ${simpleTask.id}) as complete - API needed.')),
                     );
-                    setStateIfMounted(() {
-                      final taskIndex = _simpleTasks.indexWhere((t) => t.id == simpleTask.id);
-                      if (taskIndex != -1 && _simpleTasks[taskIndex].reminder != null) {
-                        // ← FIXED: Create new objects instead of using copyWith
-                        final oldReminder = _simpleTasks[taskIndex].reminder!;
-                        final updatedReminder = MinimalReminder(
-                          id: oldReminder.id,
-                          remindedAt: oldReminder.remindedAt,
-                          isCompleted: true,
-                        );
-                        final updatedTask = SimpleTask(
-                          id: _simpleTasks[taskIndex].id,
-                          taskTxt: _simpleTasks[taskIndex].taskTxt,
-                          nextReminderAt: _simpleTasks[taskIndex].nextReminderAt,
-                          reminder: updatedReminder,
-                        );
-                        _simpleTasks[taskIndex] = updatedTask;
-                        _sortSimpleTasks();
-                      }
-                    });
+                    // TODO: Implement actual completion logic
                   },
                 );
               },
@@ -181,34 +192,25 @@ class TodoListScreenState extends State<TodoListScreen>
 
           // Upcoming Reminders
           _header(context, 'Upcoming Reminders'),
-          if (_loadingReminders)
-            SliverToBoxAdapter(/* Loading */)
-          else if (_errorReminders != null)
-            SliverToBoxAdapter(child: _buildErrorWidget(_errorReminders!, _loadPendingReminders))
-          else if (_reminderInstances.isEmpty)
-              _emptyText('No upcoming reminders')
-            else
-              SliverList.builder(
-                itemCount: _reminderInstances.length,
-                itemBuilder: (context, index) {
-                  final inst = _reminderInstances[index];
-                  return ReminderInstanceCard(
-                    key: ValueKey('instance_${inst.id}'),
-                    instance: inst,
-                    onCompleted: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Mark Instance (ID: ${inst.id}) as complete - API needed.')),
-                      );
-                      setStateIfMounted(() {
-                        final instanceIndex = _reminderInstances.indexWhere((i) => i.id == inst.id);
-                        if(instanceIndex != -1) {
-                          _reminderInstances[instanceIndex] = inst.copyWith(isCompleted: true);
-                        }
-                      });
-                    },
-                  );
-                },
-              ),
+          if (_reminderInstances.isEmpty)
+            _emptyText('No upcoming reminders')
+          else
+            SliverList.builder(
+              itemCount: _reminderInstances.length,
+              itemBuilder: (context, index) {
+                final inst = _reminderInstances[index];
+                return ReminderInstanceCard(
+                  key: ValueKey('instance_${inst.id}'),
+                  instance: inst,
+                  onCompleted: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Mark Instance (ID: ${inst.id}) as complete - API needed.')),
+                    );
+                    // TODO: Implement actual completion logic
+                  },
+                );
+              },
+            ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
@@ -228,24 +230,6 @@ class TodoListScreenState extends State<TodoListScreen>
             color: Colors.grey[700],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget(String errorMsg, VoidCallback onRetry) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 32.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, color: Colors.red[700], size: 48),
-          const SizedBox(height: 16),
-          Text('Failed to load reminders', style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          Text(errorMsg, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
-        ],
       ),
     );
   }

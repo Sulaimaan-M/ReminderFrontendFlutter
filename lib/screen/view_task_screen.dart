@@ -176,13 +176,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
               ),
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(
-              'Cron (UTC): ${task.cronExpression}',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
-          ),
+          // REMOVED: Cron UTC text line
         ],
       ),
     );
