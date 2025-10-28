@@ -7,6 +7,7 @@ const String _baseUrl = 'http://10.0.2.2:8080';
 abstract class ReminderApiClient {
   Future<List<Map<String, dynamic>>> getPendingByDevice(int deviceId);
   Future<bool> completeReminder(int reminderId);
+  Future<List<Map<String, dynamic>>> getRemindersByTask(int taskId); // NEW METHOD
 }
 
 class HttpReminderApiClient implements ReminderApiClient {
@@ -62,6 +63,31 @@ class HttpReminderApiClient implements ReminderApiClient {
     } catch (e) {
       debugPrint('💥 COMPLETE REMINDER ERROR: $e');
       return false;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRemindersByTask(int taskId) async {
+    try {
+      debugPrint('📤 GET REMINDERS BY TASK: $taskId');
+
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/reminder/task/$taskId'), // NEW ENDPOINT
+      );
+
+      _logResponse('GET REMINDERS BY TASK', response);
+
+      if (response.statusCode == 200) {
+        final dynamic responseBody = jsonDecode(response.body);
+        if (responseBody is List) {
+          debugPrint('✅ GET REMINDERS BY TASK BODY: $responseBody');
+          return responseBody.cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('💥 GET REMINDERS BY TASK ERROR: $e');
+      return [];
     }
   }
 

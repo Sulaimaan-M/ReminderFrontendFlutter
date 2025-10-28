@@ -142,9 +142,9 @@ class TodoListScreenState extends State<TodoListScreen>
 
           const TodoDivider(), // MODULARIZED
 
-          const TodoHeader(title: 'Upcoming Reminders'), // MODULARIZED
+          const TodoHeader(title: 'Reminders'), // MODULARIZED
           if (_detailedReminders.isEmpty)
-            const TodoEmptyState(text: 'No upcoming reminders') // MODULARIZED
+            const TodoEmptyState(text: 'No reminders') // MODULARIZED
           else
             RemindersSection( // MODULARIZED
               reminders: _detailedReminders,
