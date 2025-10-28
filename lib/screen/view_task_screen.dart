@@ -19,14 +19,14 @@ class ViewTaskScreen extends StatefulWidget {
 class _ViewTaskScreenState extends State<ViewTaskScreen> {
   bool _loading = true;
   String? _error;
-  List<MinimalReminder> _instances = []; // This will now hold actual reminder history
+  List<MinimalReminder> _instances = [];
   late Task _currentTask;
 
   @override
   void initState() {
     super.initState();
     _currentTask = widget.task;
-    _loadInstances(); // This will now fetch actual data
+    _loadInstances();
   }
 
   Future<void> _loadInstances() async {
@@ -37,7 +37,6 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     });
 
     try {
-      // NEW: Fetch actual reminder history for this task
       final reminderService = ReminderService();
       final taskReminders = await reminderService.getRemindersByTask(_currentTask.id!);
 
@@ -116,6 +115,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
                     remindedAt: reminder.remindedAt,
                     isCompleted: reminder.isCompleted,
                     reminderId: reminder.id,
+                    onReminderUpdated: _loadInstances, // This will refresh the list
                   );
                 },
               ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../model/detailed_reminder.dart';
+import '../../../service/reminder_service.dart';
 
-class RemindersSection extends StatelessWidget {
+class RemindersSection extends StatefulWidget {
   final List<DetailedReminder> reminders;
   final VoidCallback onReminderCompleted;
 
@@ -12,27 +13,92 @@ class RemindersSection extends StatelessWidget {
   });
 
   @override
+  State<RemindersSection> createState() => _RemindersSectionState();
+}
+
+class _RemindersSectionState extends State<RemindersSection> {
+  @override
   Widget build(BuildContext context) {
     return SliverList.builder(
-      itemCount: reminders.length,
+      itemCount: widget.reminders.length,
       itemBuilder: (context, index) {
-        final detailedReminder = reminders[index];
-        return _buildDetailedReminderCard(detailedReminder, context);
+        final detailedReminder = widget.reminders[index];
+        return _ReminderCard(
+          reminder: detailedReminder,
+          onReminderUpdated: widget.onReminderCompleted,
+        );
       },
     );
   }
+}
 
-  Widget _buildDetailedReminderCard(DetailedReminder reminder, BuildContext context) {
+class _ReminderCard extends StatefulWidget {
+  final DetailedReminder reminder;
+  final VoidCallback onReminderUpdated;
+
+  const _ReminderCard({
+    required this.reminder,
+    required this.onReminderUpdated,
+  });
+
+  @override
+  State<_ReminderCard> createState() => _ReminderCardState();
+}
+
+class _ReminderCardState extends State<_ReminderCard> {
+  bool _isCompleting = false;
+
+  Future<void> _handleComplete() async {
+    if (_isCompleting) return;
+
+    setState(() {
+      _isCompleting = true;
+    });
+
+    try {
+      final reminderService = ReminderService();
+      final success = await reminderService.completeReminder(widget.reminder.reminderId);
+
+      if (success && mounted) {
+        // Notify parent to refresh the list
+        widget.onReminderUpdated();
+
+        // Show success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reminder marked as completed')),
+        );
+      } else if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to complete reminder')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error completing reminder')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCompleting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         title: Text(
-          reminder.taskTxt,
+          widget.reminder.taskTxt,
           style: TextStyle(
             fontSize: 16,
-            decoration: reminder.isCompleted ? TextDecoration.lineThrough : null,
-            color: reminder.isCompleted ? Colors.grey[600] : null,
+            decoration: widget.reminder.isCompleted ? TextDecoration.lineThrough : null,
+            color: widget.reminder.isCompleted ? Colors.grey[600] : null,
           ),
         ),
         subtitle: Padding(
@@ -41,45 +107,45 @@ class RemindersSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Reminded at: ${_formatDateTime(reminder.remindedAt)}',
+                'Reminded at: ${_formatDateTime(widget.reminder.remindedAt)}',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey[700],
-                  decoration: reminder.isCompleted ? TextDecoration.lineThrough : null,
+                  decoration: widget.reminder.isCompleted ? TextDecoration.lineThrough : null,
                 ),
               ),
               const SizedBox(height: 4),
               Chip(
-                label: Text(reminder.recurrenceType, style: const TextStyle(fontSize: 10)),
-                backgroundColor: _getColorForType(reminder.recurrenceType).withOpacity(0.2),
+                label: Text(widget.reminder.recurrenceType, style: const TextStyle(fontSize: 10)),
+                backgroundColor: _getColorForType(widget.reminder.recurrenceType).withOpacity(0.2),
                 padding: EdgeInsets.zero,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ],
           ),
         ),
-        trailing: IconButton(
+        trailing: _isCompleting
+            ? const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+            : IconButton(
           icon: Icon(
-            reminder.isCompleted
+            widget.reminder.isCompleted
                 ? Icons.check_circle
                 : Icons.check_circle_outline,
-            color: reminder.isCompleted
+            color: widget.reminder.isCompleted
                 ? Colors.green
                 : Theme.of(context).colorScheme.primary,
           ),
-          tooltip: reminder.isCompleted
+          tooltip: widget.reminder.isCompleted
               ? 'Completed'
               : 'Mark as completed',
-          onPressed: reminder.isCompleted ? null : () => _handleReminderCompletion(reminder),
+          onPressed: widget.reminder.isCompleted ? null : _handleComplete,
         ),
       ),
     );
-  }
-
-  Future<void> _handleReminderCompletion(DetailedReminder reminder) async {
-    // This would be handled by the parent widget callback
-    // For now, we'll just call the provided callback
-    onReminderCompleted();
   }
 
   Color _getColorForType(String type) {
