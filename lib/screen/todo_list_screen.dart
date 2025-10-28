@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../model/simple_task.dart';
 import '../model/minimal_reminder.dart';
-import '../model/reminder_instance.dart';
+import '../model/detailed_reminder.dart';
 import '../model/interval_type.dart';
 import '../service/reminder_service.dart';
 import '../service/task_service.dart';
 import '../widget/todo/simple_task_card.dart';
-import '../widget/todo/reminder_instance_card.dart';
+import '../widget/todo/sections/simple_tasks_section.dart'; // NEW
+import '../widget/todo/sections/reminders_section.dart'; // NEW
+import '../widget/todo/sections/todo_headers.dart'; // NEW
 
 class TodoListScreen extends StatefulWidget {
   const TodoListScreen({super.key});
@@ -21,7 +23,7 @@ class TodoListScreenState extends State<TodoListScreen>
   bool get wantKeepAlive => true;
 
   List<SimpleTask> _simpleTasks = [];
-  List<ReminderInstance> _reminderInstances = [];
+  List<DetailedReminder> _detailedReminders = [];
   bool _loading = true;
   String? _error;
 
@@ -46,7 +48,6 @@ class TodoListScreenState extends State<TodoListScreen>
     });
 
     try {
-      // Load simple tasks using the new method that preserves reminder data
       final taskService = TaskService();
       final deviceId = await taskService.getDeviceId();
       debugPrint('📱 TodoListScreen: Device ID = $deviceId');
@@ -55,24 +56,22 @@ class TodoListScreenState extends State<TodoListScreen>
         throw Exception('No device ID found');
       }
 
-      // Use the new method that gets simple tasks with embedded reminder data
       final simpleTasks = await taskService.getSimpleTasksWithReminders();
       debugPrint('📥 TodoListScreen: Simple tasks with reminders = ${simpleTasks.length}');
 
-      // Load pending reminders for other sections
       final reminderService = ReminderService();
-      final pendingReminders = await reminderService.getPendingReminders();
-      debugPrint('🔔 TodoListScreen: Pending reminders = ${pendingReminders.length}');
+      final detailedReminders = await reminderService.getPendingReminders();
+      debugPrint('🔔 TodoListScreen: Detailed reminders = ${detailedReminders.length}');
 
       if (!mounted) return;
 
       setState(() {
         _simpleTasks = simpleTasks;
-        _reminderInstances = pendingReminders;
+        _detailedReminders = detailedReminders;
         _loading = false;
         _sortSimpleTasks();
-        _logSortingResults(); // Log the final sorting results for verification
-        debugPrint('✅ TodoListScreen: Data loaded successfully. Simple tasks: ${simpleTasks.length}, Reminders: ${pendingReminders.length}');
+        _logSortingResults();
+        debugPrint('✅ TodoListScreen: Data loaded successfully. Simple tasks: ${simpleTasks.length}, Detailed Reminders: ${detailedReminders.length}');
       });
     } catch (e, stackTrace) {
       debugPrint('❌ TodoListScreen: Error loading data: $e');
@@ -86,20 +85,12 @@ class TodoListScreenState extends State<TodoListScreen>
   }
 
   void _sortSimpleTasks() {
-    // Sort according to specification:
-    // Tasks with reminders (checkmark) at the top
-    // Tasks without reminders (bell) at the bottom
-    // Within each group, sort by next reminder time
-
     _simpleTasks.sort((a, b) {
       final bool aHasReminder = a.reminder != null;
       final bool bHasReminder = b.reminder != null;
 
-      // Primary sort: tasks with reminders first
-      if (aHasReminder && !bHasReminder) return -1;  // a (has reminder) comes first
-      if (!aHasReminder && bHasReminder) return 1;   // b (has reminder) comes first
-
-      // Secondary sort: by next reminder time (ascending)
+      if (aHasReminder && !bHasReminder) return -1;
+      if (!aHasReminder && bHasReminder) return 1;
       return a.nextReminderAt.compareTo(b.nextReminderAt);
     });
   }
@@ -114,22 +105,14 @@ class TodoListScreenState extends State<TodoListScreen>
     }
   }
 
-  // Called when a task is updated/completed
   Future<void> _onTaskUpdated() async {
     debugPrint('🔄 TodoListScreen: Task updated, reloading data...');
-    await _loadAllData(); // Reload all data to reflect changes
+    await _loadAllData();
   }
 
-  // Called when a reminder instance is completed
   void _onReminderCompleted() {
     debugPrint('🔄 TodoListScreen: Reminder completed, reloading data...');
-    _loadAllData(); // Reload data to reflect changes
-  }
-
-  void setStateIfMounted(VoidCallback fn) {
-    if (mounted) {
-      setState(fn);
-    }
+    _loadAllData();
   }
 
   @override
@@ -141,62 +124,31 @@ class TodoListScreenState extends State<TodoListScreen>
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text('Error: $_error'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadAllData,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
+      return _buildErrorWidget();
     }
 
     return RefreshIndicator(
       onRefresh: _loadAllData,
       child: CustomScrollView(
         slivers: [
-          // Simple Tasks
-          _header(context, 'One-Time Tasks'),
+          const TodoHeader(title: 'One-Time Tasks'), // MODULARIZED
           if (_simpleTasks.isEmpty)
-            _emptyText('No one-time tasks scheduled')
+            const TodoEmptyState(text: 'No one-time tasks scheduled') // MODULARIZED
           else
-            SliverList.builder(
-              itemCount: _simpleTasks.length,
-              itemBuilder: (context, index) {
-                final simpleTask = _simpleTasks[index];
-                debugPrint('📱 Building SimpleTaskCard ${index + 1}/${_simpleTasks.length} - Task ID: ${simpleTask.id}, Has Reminder: ${simpleTask.reminder != null}, Reminder ID: ${simpleTask.reminder?.id}');
-                return SimpleTaskCard(
-                  key: ValueKey('simple_task_${simpleTask.id}'),
-                  task: simpleTask,
-                  onTaskUpdated: _onTaskUpdated,
-                );
-              },
+            SimpleTasksSection( // MODULARIZED
+              tasks: _simpleTasks,
+              onTaskUpdated: _onTaskUpdated,
             ),
 
-          _divider(),
+          const TodoDivider(), // MODULARIZED
 
-          // Upcoming Reminders
-          _header(context, 'Upcoming Reminders'),
-          if (_reminderInstances.isEmpty)
-            _emptyText('No upcoming reminders')
+          const TodoHeader(title: 'Upcoming Reminders'), // MODULARIZED
+          if (_detailedReminders.isEmpty)
+            const TodoEmptyState(text: 'No upcoming reminders') // MODULARIZED
           else
-            SliverList.builder(
-              itemCount: _reminderInstances.length,
-              itemBuilder: (context, index) {
-                final inst = _reminderInstances[index];
-                return ReminderInstanceCard(
-                  key: ValueKey('instance_${inst.id}'),
-                  instance: inst,
-                  onCompleted: _onReminderCompleted, // Updated callback
-                );
-              },
+            RemindersSection( // MODULARIZED
+              reminders: _detailedReminders,
+              onReminderCompleted: _onReminderCompleted,
             ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -205,36 +157,20 @@ class TodoListScreenState extends State<TodoListScreen>
     );
   }
 
-  // --- Helper Widgets remain the same ---
-  SliverToBoxAdapter _header(BuildContext context, String title) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 8.0),
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          Text('Error: $_error'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadAllData,
+            child: const Text('Retry'),
           ),
-        ),
-      ),
-    );
-  }
-
-  SliverToBoxAdapter _emptyText(String text) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-        child: Center(child: Text(text, style: TextStyle(color: Colors.grey[600], fontSize: 16))),
-      ),
-    );
-  }
-
-  SliverToBoxAdapter _divider() {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-        child: Divider(thickness: 1, color: Colors.grey[300]),
+        ],
       ),
     );
   }

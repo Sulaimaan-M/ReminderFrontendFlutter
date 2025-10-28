@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import '../model/interval_type.dart';
 import '../model/task.dart';
-import '../model/reminder_instance.dart';
+import '../model/minimal_reminder.dart';
 import '../service/reminder_service.dart';
 import '../service/task_service.dart';
 import 'create_task_screen.dart';
+import '../widget/view_task/task_header.dart'; // NEW
+import '../widget/view_task/reminders_list.dart'; // NEW
+import '../widget/view_task/task_actions.dart'; // NEW
 
 class ViewTaskScreen extends StatefulWidget {
   final Task task;
@@ -17,7 +19,7 @@ class ViewTaskScreen extends StatefulWidget {
 class _ViewTaskScreenState extends State<ViewTaskScreen> {
   bool _loading = true;
   String? _error;
-  List<ReminderInstance> _instances = [];
+  List<MinimalReminder> _instances = [];
   late Task _currentTask;
 
   @override
@@ -35,10 +37,8 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     });
 
     try {
-      // Since we don't have getRemindersByTask endpoint, we'll use pending reminders
-      // and filter by task ID, or show a message that this feature needs backend implementation
-      final allPendingReminders = await ReminderService().getPendingReminders();
-      final taskReminders = allPendingReminders.where((reminder) => reminder.taskId == _currentTask.id).toList();
+      // Placeholder until backend endpoint is implemented
+      final List<MinimalReminder> taskReminders = [];
 
       if (!mounted) return;
       setState(() {
@@ -95,7 +95,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
       ),
       body: Column(
         children: [
-          _buildHeader(_currentTask),
+          TaskHeader(task: _currentTask), // MODULARIZED
           const Divider(height: 1),
           Expanded(
             child: _loading
@@ -106,34 +106,11 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
                 ? const Center(child: Text('No reminder instances yet for this task'))
                 : RefreshIndicator(
               onRefresh: _loadInstances,
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 80, top: 8),
-                itemCount: _instances.length,
-                itemBuilder: (context, index) {
-                  final r = _instances[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.notifications_active_outlined,
-                        color: Colors.grey[700],
-                      ),
-                      title: Text('Reminded on: ${_formatDateTime(r.remindedAt)}'),
-                      trailing: IconButton(
-                        icon: Icon(
-                          r.isCompleted
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: r.isCompleted ? Colors.green : Colors.grey,
-                        ),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('API call to toggle completion for instance ID ${r.id} not implemented yet.')),
-                          );
-                        },
-                        tooltip: r.isCompleted ? 'Mark incomplete (Not Implemented)' : 'Mark as completed (Not Implemented)',
-                      ),
-                    ),
+              child: RemindersList( // MODULARIZED
+                reminders: _instances,
+                onReminderAction: (reminder) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('API call to toggle completion for instance ID ${reminder.id} not implemented yet.')),
                   );
                 },
               ),
@@ -141,43 +118,9 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
-    );
-  }
-
-  Widget _buildHeader(Task task) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            task.taskText,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Chip(
-                label: Text(task.interval.label, style: const TextStyle(fontSize: 12)),
-                backgroundColor: _typeColor(task.interval).withOpacity(0.15),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              ),
-              const SizedBox(width: 12),
-              Icon(Icons.schedule_outlined, size: 18, color: Colors.grey[700]),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Next: ${_formatDateTime(task.nextReminderAt)}',
-                  style: TextStyle(color: Colors.grey[800], fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          // REMOVED: Cron UTC text line
-        ],
+      bottomNavigationBar: TaskActions( // MODULARIZED
+        onDelete: _onDelete,
+        onEdit: _onEdit,
       ),
     );
   }
@@ -198,51 +141,6 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
             label: const Text('Retry'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                label: const Text('Delete Task', style: TextStyle(color: Colors.red)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _onEdit,
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Edit Task'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -304,15 +202,5 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     final minute = localDt.minute.toString().padLeft(2, '0');
     final ampm = localDt.hour < 12 ? 'AM' : 'PM';
     return '$date at $hour:$minute $ampm';
-  }
-
-  Color _typeColor(IntervalType type) {
-    switch (type) {
-      case IntervalType.simple: return Colors.orange;
-      case IntervalType.daily:  return Colors.blue;
-      case IntervalType.weekly: return Colors.green;
-      case IntervalType.monthly:return Colors.purple;
-      case IntervalType.yearly: return Colors.red;
-    }
   }
 }

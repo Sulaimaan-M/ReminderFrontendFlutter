@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../api/reminder_api_client.dart';
 import '../model/interval_type.dart';
+import '../model/detailed_reminder.dart'; // NEW: Import DetailedReminder
 import 'device_token_service.dart';
-import '../model/reminder_instance.dart';
 
 class ReminderService {
   final ReminderApiClient _apiClient;
@@ -12,18 +12,32 @@ class ReminderService {
 
   Future<int?> getDeviceId() async => DeviceTokenService().getDeviceId();
 
-  Future<List<ReminderInstance>> getPendingReminders() async {
+  // UPDATED: Return List<DetailedReminder> instead of List<ReminderInstance>
+  Future<List<DetailedReminder>> getPendingReminders() async {
     final deviceId = await getDeviceId();
     if (deviceId == null) {
       debugPrint('❌ No device ID found for getPendingReminders');
       return [];
     }
-    final List<Map<String, dynamic>> data = await _apiClient.getPendingByDevice(deviceId);
-    debugPrint('📦 Pending reminders received: ${data.length}');
-    return data.map(_parseInstance).where((instance) => instance != null).cast<ReminderInstance>().toList();
+
+    // Get raw data from API
+    final List<Map<String, dynamic>> rawData = await _apiClient.getPendingByDevice(deviceId);
+    debugPrint('📦 Pending reminders received: ${rawData.length}');
+
+    // Convert raw data to DetailedReminder objects
+    return rawData.map(_parseDetailedReminder).whereType<DetailedReminder>().toList();
   }
 
-  // NEW METHOD: Complete a reminder
+  // NEW: Parse raw data directly to DetailedReminder
+  DetailedReminder? _parseDetailedReminder(Map<String, dynamic> json) {
+    try {
+      return DetailedReminder.fromJson(json);
+    } catch (e) {
+      debugPrint('❌ Error parsing DetailedReminder: $e');
+      return null;
+    }
+  }
+
   Future<bool> completeReminder(int reminderId) async {
     debugPrint('🔔 ReminderService.completeReminder | reminderId=$reminderId');
     try {
@@ -34,59 +48,5 @@ class ReminderService {
       debugPrint('❌ ReminderService.completeReminder | Error: $e');
       return false;
     }
-  }
-
-  ReminderInstance? _parseInstance(Map<String, dynamic> json) {
-    // Correctly parse IntervalType
-    final recurrenceTypeStr = (json['recurrenceType'] as String?)?.toLowerCase();
-    IntervalType type;
-    if (recurrenceTypeStr != null) {
-      try {
-        type = IntervalType.values.byName(recurrenceTypeStr);
-      } catch (_) {
-        debugPrint('⚠️ Warning: Unknown IntervalType string "$recurrenceTypeStr" in ReminderInstance JSON. Defaulting to simple.');
-        type = IntervalType.simple;
-      }
-    } else {
-      debugPrint('⚠️ Warning: Missing "recurrenceType" in ReminderInstance JSON. Defaulting to simple.');
-      type = IntervalType.simple;
-    }
-
-    // Parse remindedAt
-    DateTime remindedAt;
-    final remindedAtStr = json['remindedAt'] as String?;
-    if (remindedAtStr != null) {
-      try {
-        remindedAt = DateTime.parse(remindedAtStr).toLocal();
-      } catch (e) {
-        debugPrint('❌ Error parsing remindedAt "$remindedAtStr": $e. Using current time.');
-        remindedAt = DateTime.now();
-      }
-    } else {
-      debugPrint('⚠️ Warning: Missing "remindedAt" in ReminderInstance JSON. Using current time.');
-      remindedAt = DateTime.now();
-    }
-
-    // Parse required taskId
-    final int? taskId = json['taskId'] as int?;
-    if (taskId == null) {
-      debugPrint('❌ Error: Missing required field "taskId" in ReminderInstance JSON. Skipping instance creation.');
-      return null;
-    }
-
-    // Parse other fields with null checks and defaults
-    final int id = json['reminderId'] as int? ?? 0;
-    final String taskText = (json['taskTxt'] as String?) ?? 'Untitled';
-    final bool isCompleted = (json['isCompleted'] as bool?) ?? false;
-
-    // Construct ReminderInstance using all required parameters
-    return ReminderInstance(
-      id: id,
-      taskText: taskText,
-      remindedAt: remindedAt,
-      taskType: type,
-      isCompleted: isCompleted,
-      taskId: taskId,
-    );
   }
 }

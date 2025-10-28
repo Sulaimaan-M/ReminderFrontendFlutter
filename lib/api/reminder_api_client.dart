@@ -6,7 +6,7 @@ const String _baseUrl = 'http://10.0.2.2:8080';
 
 abstract class ReminderApiClient {
   Future<List<Map<String, dynamic>>> getPendingByDevice(int deviceId);
-  Future<bool> completeReminder(int reminderId); // NEW METHOD
+  Future<bool> completeReminder(int reminderId);
 }
 
 class HttpReminderApiClient implements ReminderApiClient {
@@ -49,7 +49,6 @@ class HttpReminderApiClient implements ReminderApiClient {
 
       _logResponse('COMPLETE REMINDER', response);
 
-      // Return true for success (204 No Content) or if already completed (200)
       if (response.statusCode == 204 || response.statusCode == 200) {
         debugPrint('✅ COMPLETE REMINDER SUCCESS: $reminderId');
         return true;
