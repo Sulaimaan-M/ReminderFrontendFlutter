@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../model/simple_task.dart';
+import '../model/minimal_reminder.dart';
 import '../model/reminder_instance.dart';
 import '../model/interval_type.dart';
 import '../service/reminder_service.dart';
@@ -24,43 +25,37 @@ class TodoListScreenState extends State<TodoListScreen>
     // Task where reminder *has* fired (has reminder instance)
     SimpleTask(
       id: 2,
-      taskText: 'Buy groceries (Reminder Exists)',
-      remindAt: DateTime.now().subtract(const Duration(hours: 3)),
-      reminder: ReminderInstance(
+      taskTxt: 'Buy groceries (Reminder Exists)', // ← FIXED
+      nextReminderAt: DateTime.now().subtract(const Duration(hours: 3)), // ← FIXED
+      reminder: MinimalReminder( // ← FIXED: Changed from ReminderInstance
         id: 101,
         remindedAt: DateTime.now().subtract(const Duration(hours: 3)),
         isCompleted: false,
-        taskText: 'Buy groceries (Reminder Exists)',
-        taskId: 2, // --- CORRECTED: Added required taskId ---
-        taskType: IntervalType.simple,
       ),
     ),
     // Task where reminder has *not* fired yet (reminder instance is null)
     SimpleTask(
       id: 1,
-      taskText: 'Doctor appointment (Reminder Null)',
-      remindAt: DateTime.now().add(const Duration(days: 1, hours: 2)),
+      taskTxt: 'Doctor appointment (Reminder Null)', // ← FIXED
+      nextReminderAt: DateTime.now().add(const Duration(days: 1, hours: 2)), // ← FIXED
       reminder: null,
     ),
     // Another task where reminder has *not* fired yet
     SimpleTask(
       id: 3,
-      taskText: 'Call plumber (Reminder Null)',
-      remindAt: DateTime.now().add(const Duration(minutes: 30)),
+      taskTxt: 'Call plumber (Reminder Null)', // ← FIXED
+      nextReminderAt: DateTime.now().add(const Duration(minutes: 30)), // ← FIXED
       reminder: null,
     ),
     // Task where reminder *has* fired AND is marked completed
     SimpleTask(
       id: 4,
-      taskText: 'Pay bills (Reminder Exists, Completed)',
-      remindAt: DateTime.now().subtract(const Duration(days: 2)),
-      reminder: ReminderInstance(
+      taskTxt: 'Pay bills (Reminder Exists, Completed)', // ← FIXED
+      nextReminderAt: DateTime.now().subtract(const Duration(days: 2)), // ← FIXED
+      reminder: MinimalReminder( // ← FIXED: Changed from ReminderInstance
         id: 102,
         remindedAt: DateTime.now().subtract(const Duration(days: 2)),
         isCompleted: true,
-        taskText: 'Pay bills (Reminder Exists, Completed)',
-        taskId: 4, // --- CORRECTED: Added required taskId ---
-        taskType: IntervalType.simple,
       ),
     ),
   ];
@@ -88,7 +83,7 @@ class TodoListScreenState extends State<TodoListScreen>
       if (!aIsCompleted && bIsCompleted) return -1;
       if (aHasReminder && !bHasReminder) return -1;
       if (!aHasReminder && bHasReminder) return 1;
-      return a.remindAt.compareTo(b.remindAt);
+      return a.nextReminderAt.compareTo(b.nextReminderAt); // ← FIXED
     });
   }
 
@@ -153,7 +148,6 @@ class TodoListScreenState extends State<TodoListScreen>
                 return SimpleTaskCard(
                   key: ValueKey('simple_task_${simpleTask.id}'),
                   task: simpleTask,
-                  // --- CORRECTED: Use onMarkComplete callback name ---
                   onActionTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Mark Simple Task (ID: ${simpleTask.id}, ReminderID: ${simpleTask.reminder?.id}) as complete - API needed.')),
@@ -161,8 +155,20 @@ class TodoListScreenState extends State<TodoListScreen>
                     setStateIfMounted(() {
                       final taskIndex = _simpleTasks.indexWhere((t) => t.id == simpleTask.id);
                       if (taskIndex != -1 && _simpleTasks[taskIndex].reminder != null) {
-                        final updatedReminder = _simpleTasks[taskIndex].reminder!.copyWith(isCompleted: true);
-                        _simpleTasks[taskIndex] = _simpleTasks[taskIndex].copyWith(reminder: updatedReminder);
+                        // ← FIXED: Create new objects instead of using copyWith
+                        final oldReminder = _simpleTasks[taskIndex].reminder!;
+                        final updatedReminder = MinimalReminder(
+                          id: oldReminder.id,
+                          remindedAt: oldReminder.remindedAt,
+                          isCompleted: true,
+                        );
+                        final updatedTask = SimpleTask(
+                          id: _simpleTasks[taskIndex].id,
+                          taskTxt: _simpleTasks[taskIndex].taskTxt,
+                          nextReminderAt: _simpleTasks[taskIndex].nextReminderAt,
+                          reminder: updatedReminder,
+                        );
+                        _simpleTasks[taskIndex] = updatedTask;
                         _sortSimpleTasks();
                       }
                     });
@@ -189,7 +195,7 @@ class TodoListScreenState extends State<TodoListScreen>
                   return ReminderInstanceCard(
                     key: ValueKey('instance_${inst.id}'),
                     instance: inst,
-                    onCompleted: () { // This one correctly uses onCompleted
+                    onCompleted: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Mark Instance (ID: ${inst.id}) as complete - API needed.')),
                       );

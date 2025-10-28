@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../model/simple_task.dart'; // Import the new SimpleTask model
+
+import '../../model/simple_task.dart';
+
 
 class SimpleTaskCard extends StatelessWidget {
-  // Use the new SimpleTask model
   final SimpleTask task;
-  // Callback when the checkmark (action icon) is tapped
   final VoidCallback onActionTap;
 
   const SimpleTaskCard({
     super.key,
-    required this.task, // Updated type
-    required this.onActionTap, // Updated name
+    required this.task,
+    required this.onActionTap,
   });
 
   @override
@@ -37,30 +37,27 @@ class SimpleTaskCard extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         title: Text(
-          task.taskText,
+          task.taskTxt, // ← UPDATED
           style: TextStyle(
             fontSize: 16,
-            // Add strikethrough if the reminder exists AND is completed
             decoration: isCompleted ? TextDecoration.lineThrough : null,
-            color: isCompleted ? Colors.grey[600] : null, // Dim text if completed
+            color: isCompleted ? Colors.grey[600] : null,
           ),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
           child: Text(
-            // Format the original scheduled time
-            _formatDateTime(task.remindAt.toLocal()),
+            _formatDateTime(task.nextReminderAt.toLocal()), // ← UPDATED
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey[700],
-              decoration: isCompleted ? TextDecoration.lineThrough : null, // Also strikethrough date
+              decoration: isCompleted ? TextDecoration.lineThrough : null,
             ),
           ),
         ),
         trailing: IconButton(
           icon: Icon(trailingIconData, color: iconColor),
           tooltip: tooltip,
-          // Only enable the button if the reminder instance exists AND it's not already completed
           onPressed: (reminderExists && !isCompleted) ? onActionTap : null,
         ),
       ),

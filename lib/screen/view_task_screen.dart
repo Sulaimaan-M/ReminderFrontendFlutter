@@ -4,7 +4,7 @@ import '../model/task.dart';
 import '../model/reminder_instance.dart';
 import '../service/reminder_service.dart';
 import '../service/task_service.dart';
-import 'create_task_screen.dart'; // Ensure this import is correct
+import 'create_task_screen.dart';
 
 class ViewTaskScreen extends StatefulWidget {
   final Task task;
@@ -15,23 +15,19 @@ class ViewTaskScreen extends StatefulWidget {
 }
 
 class _ViewTaskScreenState extends State<ViewTaskScreen> {
-  // --- State variables correctly declared within the State class ---
   bool _loading = true;
   String? _error;
   List<ReminderInstance> _instances = [];
-  // Store the task locally in state to potentially update it after edit
   late Task _currentTask;
-  // ---
 
   @override
   void initState() {
     super.initState();
-    _currentTask = widget.task; // Initialize state task
+    _currentTask = widget.task;
     _loadInstances();
   }
 
   Future<void> _loadInstances() async {
-    // Ensure mounted check happens correctly
     if (!mounted) return;
     setState(() {
       _loading = true;
@@ -39,95 +35,90 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     });
 
     try {
-      // Use the ID from the state task
-      final list = await ReminderService().getRemindersByTask(_currentTask.id!);
+      // Since we don't have getRemindersByTask endpoint, we'll use pending reminders
+      // and filter by task ID, or show a message that this feature needs backend implementation
+      final allPendingReminders = await ReminderService().getPendingReminders();
+      final taskReminders = allPendingReminders.where((reminder) => reminder.taskId == _currentTask.id).toList();
+
       if (!mounted) return;
       setState(() {
-        _instances = list;
+        _instances = taskReminders;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = "Failed to load reminder instances: ${e.toString()}"; // Add context
+        _error = "Failed to load reminder instances: ${e.toString()}";
       });
     }
   }
 
-  // --- Fetch updated task details (e.g., after edit) ---
   Future<void> _reloadTaskDetails() async {
     if (!mounted) return;
-    setState(() { _loading = true; _error = null; }); // Show loading for task reload too
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      // Assuming TaskService().getTaskById exists or similar
-      // For now, let's just refetch all tasks and find ours - replace if you have getTaskById
       final allTasks = await TaskService().getTasks();
-      final updatedTask = allTasks.firstWhere((t) => t.id == widget.task.id, orElse: () => _currentTask); // Fallback to current if not found
+      final updatedTask = allTasks.firstWhere((t) => t.id == widget.task.id, orElse: () => _currentTask);
 
       if (!mounted) return;
       setState(() {
-        _currentTask = updatedTask; // Update the task in the state
-        // Keep _loading = true until instances are also loaded
+        _currentTask = updatedTask;
       });
-      await _loadInstances(); // Reload instances after getting updated task details
+      await _loadInstances();
 
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _loading = false; // Stop loading on error
+        _loading = false;
         _error = "Failed to reload task details: ${e.toString()}";
       });
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // Access state variables correctly within build
     return Scaffold(
       appBar: AppBar(
         title: const Text('Task Details'),
         actions: [
           IconButton(
-            // Refresh both task details and instances
             icon: const Icon(Icons.refresh),
-            onPressed: _reloadTaskDetails, // Call the combined reload function
+            onPressed: _reloadTaskDetails,
             tooltip: 'Refresh Task & Instances',
           ),
         ],
       ),
       body: Column(
         children: [
-          // Use the _currentTask from state for the header
           _buildHeader(_currentTask),
           const Divider(height: 1),
           Expanded(
-            child: _loading // Accessing state variable
+            child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _error != null // Accessing state variable
-                ? _buildError(_error!) // Accessing state variable
-                : _instances.isEmpty // Accessing state variable
+                : _error != null
+                ? _buildError(_error!)
+                : _instances.isEmpty
                 ? const Center(child: Text('No reminder instances yet for this task'))
                 : RefreshIndicator(
-              onRefresh: _loadInstances, // Only reload instances on pull-to-refresh
+              onRefresh: _loadInstances,
               child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 80, top: 8), // Ensure space for FAB
+                padding: const EdgeInsets.only(bottom: 80, top: 8),
                 itemCount: _instances.length,
                 itemBuilder: (context, index) {
-                  final r = _instances[index]; // Accessing state variable
+                  final r = _instances[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     child: ListTile(
-                      leading: Icon( // Keep icon consistent
+                      leading: Icon(
                         Icons.notifications_active_outlined,
                         color: Colors.grey[700],
                       ),
-                      // Display reminder time prominently
                       title: Text('Reminded on: ${_formatDateTime(r.remindedAt)}'),
-                      // Show task text if needed, maybe less prominent
-                      // subtitle: Text(r.taskText, style: TextStyle(color: Colors.black87)),
                       trailing: IconButton(
                         icon: Icon(
                           r.isCompleted
@@ -136,14 +127,9 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
                           color: r.isCompleted ? Colors.green : Colors.grey,
                         ),
                         onPressed: () {
-                          // TODO: Implement API call to toggle completion status
-                          // For now, just show a message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('API call to toggle completion for instance ID ${r.id} not implemented yet.')),
                           );
-                          // setState(() {
-                          //   r.isCompleted = !r.isCompleted; // Visual toggle only
-                          // });
                         },
                         tooltip: r.isCompleted ? 'Mark incomplete (Not Implemented)' : 'Mark as completed (Not Implemented)',
                       ),
@@ -167,24 +153,23 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            task.taskText, // Use task from argument
+            task.taskText,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Chip(
-                label: Text(task.interval.label, style: TextStyle(fontSize: 12)), // Use task from argument
-                backgroundColor: _typeColor(task.interval).withOpacity(0.15), // Use task from argument
+                label: Text(task.interval.label, style: const TextStyle(fontSize: 12)),
+                backgroundColor: _typeColor(task.interval).withOpacity(0.15),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               ),
               const SizedBox(width: 12),
               Icon(Icons.schedule_outlined, size: 18, color: Colors.grey[700]),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  // Use task from argument and the corrected format function
                   'Next: ${_formatDateTime(task.nextReminderAt)}',
                   style: TextStyle(color: Colors.grey[800], fontSize: 14),
                 ),
@@ -194,7 +179,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
             child: Text(
-              'Cron (UTC): ${task.cronExpression}', // Use task from argument
+              'Cron (UTC): ${task.cronExpression}',
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
           ),
@@ -211,10 +196,9 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 40),
           const SizedBox(height: 8),
-          Text(err, textAlign: TextAlign.center), // Display the error message passed in
+          Text(err, textAlign: TextAlign.center),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            // Retry should reload both task and instances
             onPressed: _reloadTaskDetails,
             icon: const Icon(Icons.refresh),
             label: const Text('Retry'),
@@ -228,7 +212,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white, // Use theme color
+        color: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
         boxShadow: [
           BoxShadow(
@@ -270,7 +254,6 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
   }
 
   Future<void> _onDelete() async {
-    // Use _currentTask here
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -293,22 +276,20 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    // Use _currentTask.id
     final ok = await TaskService().deleteTask(_currentTask.id!);
 
     if (!mounted) return;
-    Navigator.pop(context); // Dismiss loading
+    Navigator.pop(context);
 
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task deleted successfully')));
-      Navigator.pop(context, true); // Pop ViewTaskScreen, signal success
+      Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete task. Please try again.')));
     }
   }
 
   Future<void> _onEdit() async {
-    // Navigate passing the _currentTask from state
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => CreateTaskScreen(task: _currentTask)),
@@ -317,15 +298,12 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     if (!mounted) return;
 
     if (result == true) {
-      // If editing was successful, refresh details and instances
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task updated. Refreshing...')));
-      await _reloadTaskDetails(); // Reload both task details and instances
+      await _reloadTaskDetails();
     }
   }
 
-
   String _formatDateTime(DateTime dt) {
-    // Use .toLocal() before formatting
     final localDt = dt.toLocal();
     final date = '${localDt.month}/${localDt.day}/${localDt.year}';
     final hour = localDt.hour % 12 == 0 ? 12 : localDt.hour % 12;

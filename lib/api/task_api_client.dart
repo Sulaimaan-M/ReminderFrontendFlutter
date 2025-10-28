@@ -7,9 +7,10 @@ const String _baseUrl = 'http://10.0.2.2:8080';
 
 abstract class TaskApiClient {
   Future<Map<String, dynamic>?> createTask(TaskCreationData task);
-  Future<bool> updateTask(int id, TaskCreationData task);  // <- now returns bool
-  Future<List<Map<String, dynamic>>> getTasksByDevice(int deviceId);
-  Future<bool> deleteTask(int id);                         // <- accept 204 as success
+  Future<bool> updateTask(int id, TaskCreationData task);
+  Future<List<Map<String, dynamic>>> getRecurringTasksByDevice(int deviceId);
+  Future<List<Map<String, dynamic>>> getSimpleTasksByDevice(int deviceId);
+  Future<bool> deleteTask(int id);
 }
 
 class HttpTaskApiClient implements TaskApiClient {
@@ -35,6 +36,8 @@ class HttpTaskApiClient implements TaskApiClient {
         if (responseBody is Map<String, dynamic>) {
           return responseBody;
         }
+      } else if (response.statusCode >= 400) {
+        debugPrint('❌ CREATE TASK FAILED: ${response.statusCode} - ${response.body}');
       }
       return null;
     } catch (e) {
@@ -57,8 +60,8 @@ class HttpTaskApiClient implements TaskApiClient {
 
       _logResponse('UPDATE TASK', response);
 
-      // Backend now returns 204 No Content (or 200 if you ever choose)
-      return response.statusCode == 204 || response.statusCode == 200;
+      // Backend returns 204 No Content on success
+      return response.statusCode == 204;
     } catch (e) {
       debugPrint('💥 UPDATE TASK ERROR: $e');
       return false;
@@ -66,26 +69,51 @@ class HttpTaskApiClient implements TaskApiClient {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getTasksByDevice(int deviceId) async {
+  Future<List<Map<String, dynamic>>> getRecurringTasksByDevice(int deviceId) async {
     try {
-      debugPrint('📤 GET TASKS FOR DEVICE: $deviceId');
+      debugPrint('📤 GET RECURRING TASKS FOR DEVICE: $deviceId');
 
       final response = await _client.get(
-        Uri.parse('$_baseUrl/task/device/$deviceId'),
+        Uri.parse('$_baseUrl/task/device/$deviceId/recurring'),
       );
 
-      _logResponse('GET TASKS', response);
+      _logResponse('GET RECURRING TASKS', response);
 
       if (response.statusCode == 200) {
         final dynamic responseBody = jsonDecode(response.body);
-        debugPrint('✅ GET TASKS RESPONSE BODY (RAW): $responseBody');
+        debugPrint('✅ GET RECURRING TASKS RESPONSE BODY (RAW): $responseBody');
         if (responseBody is List) {
           return responseBody.cast<Map<String, dynamic>>();
         }
       }
       return [];
     } catch (e) {
-      debugPrint('💥 GET TASKS ERROR: $e');
+      debugPrint('💥 GET RECURRING TASKS ERROR: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getSimpleTasksByDevice(int deviceId) async {
+    try {
+      debugPrint('📤 GET SIMPLE TASKS FOR DEVICE: $deviceId');
+
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/task/device/$deviceId/simple'),
+      );
+
+      _logResponse('GET SIMPLE TASKS', response);
+
+      if (response.statusCode == 200) {
+        final dynamic responseBody = jsonDecode(response.body);
+        debugPrint('✅ GET SIMPLE TASKS RESPONSE BODY (RAW): $responseBody');
+        if (responseBody is List) {
+          return responseBody.cast<Map<String, dynamic>>();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('💥 GET SIMPLE TASKS ERROR: $e');
       return [];
     }
   }
@@ -97,8 +125,8 @@ class HttpTaskApiClient implements TaskApiClient {
         Uri.parse('$_baseUrl/task/$id'),
       );
       _logResponse('DELETE TASK', response);
-      // Accept 204 and 200 as success
-      return response.statusCode == 204 || response.statusCode == 200;
+      // Backend returns 204 No Content on success
+      return response.statusCode == 204;
     } catch (e) {
       debugPrint('💥 DELETE TASK ERROR: $e');
       return false;

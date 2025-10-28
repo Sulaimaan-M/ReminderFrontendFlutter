@@ -60,7 +60,33 @@ class TaskListScreenState extends State<TaskListScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // ... (rest of build method remains the same) ...
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text('Error: $_errorMessage'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadTasks,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_tasks.isEmpty) {
+      return const Center(
+        child: Text('No tasks found'),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _loadTasks,
@@ -137,7 +163,6 @@ class TaskListScreenState extends State<TaskListScreen>
   }
 
   Color _getColorForType(IntervalType type) {
-    // ... (remains the same) ...
     switch (type) {
       case IntervalType.simple:
         return Colors.orange;
@@ -153,7 +178,6 @@ class TaskListScreenState extends State<TaskListScreen>
   }
 
   IconData _getIconForType(IntervalType type) {
-    // ... (remains the same) ...
     switch (type) {
       case IntervalType.simple:
         return Icons.event;

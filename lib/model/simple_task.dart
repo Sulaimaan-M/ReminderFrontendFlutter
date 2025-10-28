@@ -1,34 +1,37 @@
-import 'reminder_instance.dart'; // Import the model for the fired reminder
+import 'minimal_reminder.dart';
 
 class SimpleTask {
-  final int id; // Assuming ID is always present for tasks shown here
-  final String taskText;
-  final DateTime remindAt;
-  final ReminderInstance? reminder; // Nullable instance of the fired reminder
+  final int id;
+  final String taskTxt;
+  final DateTime nextReminderAt;
+  final MinimalReminder? reminder; // Nullable - null until reminder time arrives
 
   SimpleTask({
     required this.id,
-    required this.taskText,
-    required this.remindAt,
-    this.reminder, // Optional in constructor
+    required this.taskTxt,
+    required this.nextReminderAt,
+    this.reminder, // Optional/nullable
   });
 
-  // Add copyWith or other helpers if needed later
-  SimpleTask copyWith({
-    int? id,
-    String? taskText,
-    DateTime? remindAt,
-    ReminderInstance? reminder,
-    bool clearReminder = false,
-  }) {
+  // Factory constructor to create from JSON
+  factory SimpleTask.fromJson(Map<String, dynamic> json) {
     return SimpleTask(
-      id: id ?? this.id,
-      taskText: taskText ?? this.taskText,
-      remindAt: remindAt ?? this.remindAt,
-      reminder: clearReminder ? null : reminder ?? this.reminder,
+      id: json['id'] as int,
+      taskTxt: json['taskTxt'] as String,
+      nextReminderAt: DateTime.parse(json['nextReminderAt'] as String),
+      reminder: json['reminder'] != null
+          ? MinimalReminder.fromJson(json['reminder'] as Map<String, dynamic>)
+          : null,
     );
   }
 
-// Add fromJson if you plan to fetch these from backend later
-// factory SimpleTask.fromJson(Map<String, dynamic> json) { ... }
+  // Convert to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'taskTxt': taskTxt,
+      'nextReminderAt': nextReminderAt.toIso8601String(),
+      'reminder': reminder?.toJson(),
+    };
+  }
 }

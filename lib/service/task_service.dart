@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import '../model/interval_type.dart';
 import '../model/task_creation_data.dart';
 import '../model/task.dart';
+import '../model/recurring_task.dart';
+import '../model/simple_task.dart';
 import '../api/task_api_client.dart';
 import 'device_token_service.dart';
 import '../util/timezone_helper.dart';
@@ -21,9 +23,53 @@ class TaskService {
       debugPrint('❌ TaskService.getTasks | no device id');
       return [];
     }
-    final tasksData = await _apiClient.getTasksByDevice(deviceId);
-    debugPrint('📦 TaskService.getTasks | backend returned ${tasksData.length} items');
-    return tasksData.map((data) => Task.fromBackendJson(data)).toList();
+
+    // Fetch both recurring and simple tasks
+    final recurringTasksData = await _apiClient.getRecurringTasksByDevice(deviceId);
+    final simpleTasksData = await _apiClient.getSimpleTasksByDevice(deviceId);
+
+    debugPrint('📦 TaskService.getTasks | recurring: ${recurringTasksData.length}, simple: ${simpleTasksData.length}');
+
+    // Convert recurring tasks
+    final recurringTasks = recurringTasksData.map((data) {
+      return RecurringTask.fromJson(data);
+    }).toList();
+
+    // Convert simple tasks
+    final simpleTasks = simpleTasksData.map((data) {
+      return SimpleTask.fromJson(data);
+    }).toList();
+
+    // Convert to unified Task model
+    final List<Task> tasks = [];
+
+    // Add recurring tasks
+    for (var recurringTask in recurringTasks) {
+      tasks.add(Task(
+        id: recurringTask.id,
+        taskText: recurringTask.taskTxt,
+        createdAt: DateTime.now(), // Backend doesn't send this, so use current time
+        nextReminderAt: recurringTask.nextReminderAt,
+        cronExpression: '', // Backend doesn't send this in recurring task response
+        interval: _stringToIntervalType(recurringTask.recurrenceType),
+        deviceId: deviceId,
+      ));
+    }
+
+    // Add simple tasks
+    for (var simpleTask in simpleTasks) {
+      tasks.add(Task(
+        id: simpleTask.id,
+        taskText: simpleTask.taskTxt,
+        createdAt: DateTime.now(), // Backend doesn't send this, so use current time
+        nextReminderAt: simpleTask.nextReminderAt,
+        cronExpression: '', // Backend doesn't send this in simple task response
+        interval: IntervalType.simple,
+        deviceId: deviceId,
+      ));
+    }
+
+    return tasks;
   }
 
   Future<bool> createTask({
@@ -188,5 +234,21 @@ class TaskService {
     const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     if (indices.isEmpty) return 'MON';
     return indices.map((i) => dayNames[i]).join(',');
+  }
+
+  IntervalType _stringToIntervalType(String type) {
+    switch (type.toUpperCase()) {
+      case 'DAILY':
+        return IntervalType.daily;
+      case 'WEEKLY':
+        return IntervalType.weekly;
+      case 'MONTHLY':
+        return IntervalType.monthly;
+      case 'YEARLY':
+        return IntervalType.yearly;
+      case 'SIMPLE':
+      default:
+        return IntervalType.simple;
+    }
   }
 }
