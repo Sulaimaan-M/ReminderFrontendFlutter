@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../model/interval_type.dart';
 import '../model/task.dart';
+import '../model/yearly_selection.dart';
 import '../service/task_service.dart';
-import '../widget/create_task/task_form.dart'; // NEW
+import '../widget/create_task/task_form.dart';
+import '../widget/create_task/monthly_selector.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   final Task? task;
@@ -20,9 +22,20 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   int _minute = DateTime.now().minute;
   IntervalType _repetition = IntervalType.simple;
 
+  // Simple mode
   DateTime _simpleDate = DateTime.now();
+
+  // Weekly mode
   List<int> _selectedWeekdays = [DateTime.now().weekday - 1];
-  // ... other state variables
+
+  // Monthly mode
+  MonthlyMode _monthlyMode = MonthlyMode.singleDay;
+  int _monthlySingleDay = 1;
+  int _monthlyRangeStart = 1;
+  int _monthlyRangeEnd = 5;
+
+  // Yearly mode
+  YearlySelection _yearlySelection = YearlySelection(1, 1); // January 1st
 
   @override
   void initState() {
@@ -39,6 +52,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     if (_repetition == IntervalType.simple) {
       _simpleDate = t.nextReminderAt;
     }
+    // TODO: Load monthly and yearly data from task if needed
   }
 
   @override
@@ -50,7 +64,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         title: Text(isUpdate ? 'Edit Task' : 'New Task'),
         elevation: 0,
       ),
-      body: TaskForm( // MODULARIZED
+      body: TaskForm(
         formKey: _formKey,
         textController: _textController,
         hour: _hour,
@@ -58,12 +72,32 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         repetition: _repetition,
         simpleDate: _simpleDate,
         selectedWeekdays: _selectedWeekdays,
-        // ... pass other state variables
+
+        // Monthly
+        monthlyMode: _monthlyMode,
+        monthlySingleDay: _monthlySingleDay,
+        monthlyRangeStart: _monthlyRangeStart,
+        monthlyRangeEnd: _monthlyRangeEnd,
+
+        // Yearly
+        yearlySelection: _yearlySelection,
+
+        // Callbacks
         onHourChanged: (h) => setState(() => _hour = h),
         onMinuteChanged: (m) => setState(() => _minute = m),
         onRepetitionChanged: (r) => setState(() => _repetition = r),
         onDateChanged: (date) => setState(() => _simpleDate = date),
         onDaysChanged: (days) => setState(() => _selectedWeekdays = days),
+
+        // Monthly callbacks
+        onMonthlyModeChanged: (mode) => setState(() => _monthlyMode = mode),
+        onMonthlySingleDayChanged: (day) => setState(() => _monthlySingleDay = day),
+        onMonthlyRangeStartChanged: (day) => setState(() => _monthlyRangeStart = day),
+        onMonthlyRangeEndChanged: (day) => setState(() => _monthlyRangeEnd = day),
+
+        // Yearly callback
+        onYearlySelectionChanged: (selection) => setState(() => _yearlySelection = selection),
+
         onSave: () => _validateAndSave(isUpdate),
       ),
     );
@@ -81,7 +115,19 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       recurrenceType: _repetition,
       simpleDate: _repetition == IntervalType.simple ? _simpleDate : null,
       weeklyDays: _repetition == IntervalType.weekly ? _selectedWeekdays : null,
-      // ... other parameters
+      // Monthly - convert based on mode
+      monthlySingleDay: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.singleDay
+          ? _monthlySingleDay
+          : null,
+      monthlyRangeStart: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeStart
+          : null,
+      monthlyRangeEnd: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeEnd
+          : null,
+      // Yearly - extract from YearlySelection
+      yearlyMonth: _repetition == IntervalType.yearly ? _yearlySelection.month : null,
+      yearlyDay: _repetition == IntervalType.yearly ? _yearlySelection.day : null,
     )
         : await TaskService().createTask(
       taskText: _textController.text.trim(),
@@ -90,7 +136,19 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       recurrenceType: _repetition,
       simpleDate: _repetition == IntervalType.simple ? _simpleDate : null,
       weeklyDays: _repetition == IntervalType.weekly ? _selectedWeekdays : null,
-      // ... other parameters
+      // Monthly - convert based on mode
+      monthlySingleDay: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.singleDay
+          ? _monthlySingleDay
+          : null,
+      monthlyRangeStart: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeStart
+          : null,
+      monthlyRangeEnd: _repetition == IntervalType.monthly && _monthlyMode == MonthlyMode.dayRange
+          ? _monthlyRangeEnd
+          : null,
+      // Yearly - extract from YearlySelection
+      yearlyMonth: _repetition == IntervalType.yearly ? _yearlySelection.month : null,
+      yearlyDay: _repetition == IntervalType.yearly ? _yearlySelection.day : null,
     );
 
     if (!mounted) return;
@@ -102,5 +160,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         const SnackBar(content: Text('Failed to save task')),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
   }
 }
